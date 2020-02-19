@@ -5,26 +5,77 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import hilbert
+import json
 
 
 
-def read_wave():
-    # not sure how to read from SDE
+def get_wave(sde_tag, n_tdw, fs):
+    # read time domain waveform from SDE
+    # tdw = n_tdw values from sde_tag
+    tdw = np.arange(np.random.random(n_tdw))
 
-    # test signal for proof of concept
-    sig1 = thinkdsp.CosSignal(freq=20, amp=1.0)
-    sig2 = thinkdsp.CosSignal(freq=2500, amp=0.05)
-    sig3 = thinkdsp.CosSignal(freq=3000, amp=0.04)
-    sig4 = thinkdsp.CosSignal(freq=3500, amp=0.03)
-    sig = sig1 + sig2 + sig3 + sig4
+    # create an array of evenly spaced sample times
+    t = np.linspace(start=0, stop=n_tdw/fs, num=n_tdw, endpoint=False)
 
-    # set sampling frequency
-    framerate = 20000
-
-    # make a wave object from signal object
-    wave = sig.make_wave(duration=1, start=0, framerate=framerate)
+    # create a wave object
+    wave = thinkdsp.Wave(ys=tdw, ts=t, framerate=fs)
 
     return wave
+
+def get_spectrum(wave, window='hanning', normalize=False, unbias=False, beta=6):
+    # unbiases the signal
+    if unbias == True:
+        wave.unbias()
+
+    # normalizes the signal
+    if normalize == True:
+        wave.normalize()
+
+    # apply user defined window to the time domain waveform
+    if window == 'hanning':
+        '''The Hanning window is a taper formed by using a weighted cosine'''
+
+        wave.window(np.hanning(len(wave.ys)))
+
+    elif window == 'blackman':
+        '''The Blackman window is a taper formed by using the first three terms of a summation of cosines. 
+        It was designed to have close to the minimal leakage possible. 
+        It is close to optimal, only slightly worse than a Kaiser window'''
+
+        wave.window(np.blackman(len(wave.ys)))
+
+    elif window == 'bartlett':
+        '''The Bartlett window is very similar to a triangular window, 
+        except that the end points are at zero. It is often used in signal processing for tapering a signal, 
+        without generating too much ripple in the frequency domain.'''
+
+        wave.window(np.bartlett(len(wave.ys)))
+
+    elif window == 'kaiser':
+        '''The Kaiser window is a taper formed by using a Bessel function.
+        beta    Window shape
+        0	    Rectangular
+        5	    Similar to a Hamming
+        6	    Similar to a Hanning
+        8.6	    Similar to a Blackman '''
+
+        wave.window(np.kaiser(len(wave.ys), beta=beta))
+
+    else:
+        '''The Hanning window is a taper formed by using a weighted cosine'''
+
+        wave.window(np.hanning(len(wave.ys)))
+
+    # obtain the spectrum from a wave
+    result = wave.make_spectrum(full=False)
+
+    # create a result dictionary
+    result_dict = {}
+    result_dict.update({'amps': result.amps})
+    result_dict.update({'power': result.power})
+    result_dict.update({'freqs': result.fs})
+
+    return result_dict
 
 def demodulate_steps(wave):
     '''
@@ -110,11 +161,90 @@ def demodulate_steps(wave):
     # show plot
     plt.show()
 
+def demodulation_wave(wave, fc=400):
+    # create a copy of the original wave
+    raw_wave = wave.copy()
+
+    # make a spectrum from  wave
+    raw_spectrum = raw_wave.make_spectrum(full=False)
+
+    # apply a high pass filter at fc1 to the raw spectrum
+    raw_spectrum.high_pass(fc)
+
+    # make a time waveform from the filtered spectrum
+    raw_wave_filtered = raw_spectrum.make_wave()
+    # apply hanning windowing to the result waveform
+    raw_wave_filtered.window(np.hanning(len(raw_wave_filtered)))
+
+    # obtain the envelop of the result waveform
+    raw_wave_filtered_envelop = thinkdsp.Wave(ys=np.abs(hilbert(raw_wave_filtered.ys)),
+                                              ts=raw_wave_filtered.ts,
+                                              framerate=raw_wave_filtered.framerate)
+
+    # obtain the spectrum from the envelop
+    raw_spectrum_filtered_envelop = raw_wave_filtered_envelop.make_spectrum(full=False)
+
+    # create a result dictionary
+    result_dict = {}
+    result_dict.update({'amps': raw_spectrum_filtered_envelop.amps})
+    result_dict.update({'power': raw_spectrum_filtered_envelop.power})
+    result_dict.update({'freqs': raw_spectrum_filtered_envelop.fs})
+
+    return result_dict
+
+def demodulation_spectrum(spectrum, fc=400):
+    # make a spectrum copy of the original spectrum
+    raw_spectrum = spectrum.copy()
+
+    # apply a high pass filter at fc1 to the raw spectrum
+    raw_spectrum.high_pass(fc)
+
+    # make a time waveform from the filtered spectrum
+    raw_wave_filtered = raw_spectrum.make_wave()
+    # apply hanning windowing to the result waveform
+    raw_wave_filtered.window(np.hanning(len(raw_wave_filtered)))
+
+    # obtain the envelop of the result waveform
+    raw_wave_filtered_envelop = thinkdsp.Wave(ys=np.abs(hilbert(raw_wave_filtered.ys)),
+                                              ts=raw_wave_filtered.ts,
+                                              framerate=raw_wave_filtered.framerate)
+
+    # obtain the spectrum from the envelop
+    raw_spectrum_filtered_envelop = raw_wave_filtered_envelop.make_spectrum(full=False)
+
+    # create a result dictionary
+    result_dict = {}
+    result_dict.update({'amps': raw_spectrum_filtered_envelop.amps})
+    result_dict.update({'power': raw_spectrum_filtered_envelop.power})
+    result_dict.update({'freqs': raw_spectrum_filtered_envelop.fs})
+
+    return result_dict
 
 def main():
-    # read test wave
-    wave = read_wave()
-    demodulate_steps(wave=wave)
+    # testing time domain waveform
+    sig1 = thinkdsp.CosSignal(freq=20, amp=1.0)
+    sig2 = thinkdsp.CosSignal(freq=2500, amp=0.05)
+    sig3 = thinkdsp.CosSignal(freq=3000, amp=0.04)
+    sig4 = thinkdsp.CosSignal(freq=3500, amp=0.03)
+    sig = sig1 + sig2 + sig3 + sig4
+
+    # set sampling frequency
+    framerate = 20000
+
+    # make a wave object from signal object
+    wave = sig.make_wave(duration=1, start=0, framerate=FS)
+
+    # get the spectrum
+    spectrum = wave.make_spectrum(full=False)
+
+    # testing functions
+    # demodulate_steps(wave=wave)
+    # envelope = demodulation_wave(wave=wave, fc=2000)
+    envelope = demodulation_spectrum(spectrum=spectrum, fc=2000)
+
+    # plot the result envelope spectrum
+    plt.plot(envelope['freqs'], envelope['amps'])
+    plt.show()
 
 if __name__ == "__main__":
     # execute only if run as a script
