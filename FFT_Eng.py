@@ -9,15 +9,17 @@ import json
 
 
 
-def get_wave(sde_tag, n_tdw, fs):
+def get_wave(sde_tag='vrms', n_tdw=8192, fs=20000):
     # read time domain waveform from SDE
     # tdw = n_tdw values from sde_tag
-    tdw = np.arange(np.random.random(n_tdw))
 
     # create an array of evenly spaced sample times
     t = np.linspace(start=0, stop=n_tdw/fs, num=n_tdw, endpoint=False)
 
-    # create a wave object
+    # reproduce time domain waveform for testing
+    tdw = 1.0 * np.cos(2 * np.pi * 20 * t) + 0.05 * np.cos(2 * np.pi * 2500 * t) + 0.04 * np.cos(2 * np.pi * 3000 * t) + 0.03 * np.cos(2 * np.pi * 3500 * t)
+
+    # create the result wave
     wave = thinkdsp.Wave(ys=tdw, ts=t, framerate=fs)
 
     return wave
@@ -69,13 +71,7 @@ def get_spectrum(wave, window='hanning', normalize=False, unbias=False, beta=6):
     # obtain the spectrum from a wave
     result = wave.make_spectrum(full=False)
 
-    # create a result dictionary
-    result_dict = {}
-    result_dict.update({'amps': result.amps})
-    result_dict.update({'power': result.power})
-    result_dict.update({'freqs': result.fs})
-
-    return result_dict
+    return result
 
 def demodulate_steps(wave):
     '''
@@ -221,26 +217,16 @@ def demodulation_spectrum(spectrum, fc=400):
     return result_dict
 
 def main():
-    # testing time domain waveform
-    sig1 = thinkdsp.CosSignal(freq=20, amp=1.0)
-    sig2 = thinkdsp.CosSignal(freq=2500, amp=0.05)
-    sig3 = thinkdsp.CosSignal(freq=3000, amp=0.04)
-    sig4 = thinkdsp.CosSignal(freq=3500, amp=0.03)
-    sig = sig1 + sig2 + sig3 + sig4
+    #get time domain waveform
+    wave = get_wave(sde_tag='test', n_tdw=8192, fs=20000)
 
-    # set sampling frequency
-    framerate = 20000
-
-    # make a wave object from signal object
-    wave = sig.make_wave(duration=1, start=0, framerate=FS)
-
-    # get the spectrum
-    spectrum = wave.make_spectrum(full=False)
+    # get the spectrum. default windowing = 'hanning'
+    spectrum = get_spectrum(wave=wave)
 
     # testing functions
-    # demodulate_steps(wave=wave)
-    # envelope = demodulation_wave(wave=wave, fc=2000)
-    envelope = demodulation_spectrum(spectrum=spectrum, fc=2000)
+    demodulate_steps(wave=wave)
+    envelope = demodulation_wave(wave=wave, fc=2000)
+    # envelope = demodulation_spectrum(spectrum=spectrum, fc=2000)
 
     # plot the result envelope spectrum
     plt.plot(envelope['freqs'], envelope['amps'])
