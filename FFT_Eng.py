@@ -14,15 +14,33 @@ def get_wave(sde_tag='vrms', n_tdw=8192, fs=20000):
     # tdw = n_tdw values from sde_tag
 
     # create an array of evenly spaced sample times
-    t = np.linspace(start=0, stop=n_tdw/fs, num=n_tdw, endpoint=False)
+    t = np.linspace(start=0, stop=(n_tdw/fs), num=n_tdw, endpoint=False)
 
     # reproduce time domain waveform for testing
-    tdw = 1.0 * np.cos(2 * np.pi * 20 * t) + 0.05 * np.cos(2 * np.pi * 2500 * t) + 0.04 * np.cos(2 * np.pi * 3000 * t) + 0.03 * np.cos(2 * np.pi * 3500 * t)
+    tdw = 1.0 * np.cos(2 * np.pi * 20 * t) + \
+          0.05 * np.cos(2 * np.pi * 2500 * t) + \
+          0.04 * np.cos(2 * np.pi * 3000 * t) + \
+          0.03 * np.cos(2 * np.pi * 3500 * t)
 
-    # create the result wave
-    wave = thinkdsp.Wave(ys=tdw, ts=t, framerate=fs)
+    # returns the result wave
+    return thinkdsp.Wave(ys=tdw, ts=t, framerate=fs)
 
-    return wave
+def get_wave2(sde_tag='vrms', n_tdw=8192, fs=20000):
+    # read time domain waveform from SDE
+    # tdw = n_tdw values from sde_tag
+
+    # create an array of evenly spaced sample times
+    t = np.linspace(start=0, stop=(n_tdw/fs), num=n_tdw, endpoint=False)
+
+    # reproduce time domain waveform for testing
+    tdw = 1.0 * np.cos(2 * np.pi * 20 * t) + \
+          0.15 * np.cos(2 * np.pi * 2500 * t) + \
+          0.14 * np.cos(2 * np.pi * 3000 * t) + \
+          0.13 * np.cos(2 * np.pi * 3500 * t)
+
+    # returns the result wave
+    return thinkdsp.Wave(ys=tdw, ts=t, framerate=fs)
+
 
 def get_spectrum(wave, window='hanning', normalize=False, unbias=False, beta=6):
     # unbiases the signal
@@ -216,20 +234,91 @@ def demodulation_spectrum(spectrum, fc=400):
 
     return result_dict
 
+def diff_wave(w0, w1):
+    '''Computes and returns the  difference between waves w1-w0.
+    Restriction: Both waves need to be similar(same sampling frequency, same length)
+
+    :param w0: wave 0
+    :param w1: wave 1
+    :return: wave difference
+    '''
+
+    # returns result wave
+    return thinkdsp.Wave(ys=np.abs(w1.ys-w0.ys), ts=w0.ts, framerate=w0.framerate)
+
+def diff_spectrum(s0, s1):
+    '''Computes and returns the  difference between spectra s1-s0.
+    Restriction: Both waves need to be similar(same sampling frequency, same length)
+
+    :param s0: spectrum 0
+    :param s1: spectrum 1
+    :return: wave difference
+    '''
+
+    # returns result spectrum
+    return thinkdsp.Spectrum(hs=np.abs(s1.amps-s0.amps), fs=s0.fs, framerate=s0.framerate)
+
 def main():
     #get time domain waveform
-    wave = get_wave(sde_tag='test', n_tdw=8192, fs=20000)
+    wave1 = get_wave(sde_tag='test', n_tdw=8192, fs=20000)
+
+    # get another time domain waveform for testing
+    wave2 = get_wave2(sde_tag='test', n_tdw=8192, fs=20000)
 
     # get the spectrum. default windowing = 'hanning'
-    spectrum = get_spectrum(wave=wave)
+    spectrum1 = get_spectrum(wave=wave1)
+
+    # get the spectrum. default windowing = 'hanning'
+    spectrum2 = get_spectrum(wave=wave2)
+
+    # get maximum absolute difference between spectra
+    wdiff = diff_wave(w0=wave1, w1=wave2)
+    sdiff = diff_spectrum(s0=spectrum1, s1=spectrum2)
 
     # testing functions
-    demodulate_steps(wave=wave)
-    envelope = demodulation_wave(wave=wave, fc=2000)
-    # envelope = demodulation_spectrum(spectrum=spectrum, fc=2000)
+    # demodulate_steps(wave=wave1)
+    # envelope = demodulation_wave(wave=wave1, fc=2000)
+    # envelope = demodulation_spectrum(spectrum=spectrum1, fc=2000)
 
-    # plot the result envelope spectrum
-    plt.plot(envelope['freqs'], envelope['amps'])
+    # testing plots
+    # plt.plot(envelope['freqs'], envelope['amps'])
+
+    # create a figure
+    fig1 = plt.figure()
+    # create a subplot
+    ax = fig1.add_subplot(311)
+    # plot a wave1
+    wave1.plot(label='wave 1', color='b')
+    ax.legend()
+    # create another subplot
+    ax = fig1.add_subplot(312)
+    # plot a wave2
+    wave2.plot(label='wave 2', color='g')
+    ax.legend()
+    # create a subplot
+    ax = fig1.add_subplot(313)
+    # plot a difference
+    wdiff.plot(label='difference', color='r')
+    ax.legend()
+
+    # create a figure
+    fig2 = plt.figure()
+    # create a subplot
+    ax = fig2.add_subplot(311)
+    # plot a spectrum1
+    spectrum1.plot(label='spectrum1', color='b')
+    ax.legend()
+    # create another subplot
+    ax = fig2.add_subplot(312)
+    # plot a wave2
+    spectrum2.plot(label='spectrum2', color='g')
+    ax.legend()
+    # create a subplot
+    ax = fig2.add_subplot(313)
+    # plot a difference
+    sdiff.plot(label='difference', color='r')
+    ax.legend()
+
     plt.show()
 
 if __name__ == "__main__":
