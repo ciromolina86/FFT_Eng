@@ -7,11 +7,47 @@ import matplotlib.pyplot as plt
 from scipy.signal import hilbert
 import json
 
+def read_sde_tag(query='0'):
+    ''' read latest value of sde tag
 
+    :param query: query string
+    :return:
+    '''
 
-def get_wave(sde_tag='vrms', n_tdw=8192, fs=20000):
+    # TODO: implement this
+    tag = np.random.random_sample()
+
+    return tag
+
+def read_sde_tdw(tag='vrms', start=0, n=8192):
+    ''' Read an array of values store on the SDE as a time series
+
+    :param tag: SDE tag
+    :param start: starting timestamp
+    :param stop: ending timestamp
+    :return: np.array object
+    '''
+
+    # this is just an idea of how to read
+    # the time domain waveform stored on the SDE
+    tdw = np.array()
+
+    # read a series of values from SDE
+    for i in range(stop=n):
+        # create query
+        query = 'select {} ' \
+                'from table_1 ' \
+                'where ts={}'.format(tag, start + i)
+
+        # insert value in numpy array
+        # tdw[i] = read_sde_tag(query=query)
+        tdw[i] = np.random.random_sample()
+
+def read_wave(sde_tag='vrms',n_tdw=8192, fs=20000):
     # read time domain waveform from SDE
     # tdw = n_tdw values from sde_tag
+    # n_tdw = len(tdw)
+    n_tdw = 8192
 
     # create an array of evenly spaced sample times
     t = np.linspace(start=0, stop=(n_tdw/fs), num=n_tdw, endpoint=False)
@@ -25,7 +61,7 @@ def get_wave(sde_tag='vrms', n_tdw=8192, fs=20000):
     # returns the result wave
     return thinkdsp.Wave(ys=tdw, ts=t, framerate=fs)
 
-def get_wave2(sde_tag='vrms', n_tdw=8192, fs=20000):
+def read_wave2(sde_tag='vrms', n_tdw=8192, fs=20000):
     # read time domain waveform from SDE
     # tdw = n_tdw values from sde_tag
 
@@ -41,15 +77,27 @@ def get_wave2(sde_tag='vrms', n_tdw=8192, fs=20000):
     # returns the result wave
     return thinkdsp.Wave(ys=tdw, ts=t, framerate=fs)
 
+def get_wave(spectrum):
+    '''Reconstructing wave back from spectrum object
 
-def get_spectrum(wave, window='hanning', normalize=False, unbias=False, beta=6):
-    # unbiases the signal
-    if unbias == True:
-        wave.unbias()
+    :param s: spectrum
+    :return: reconstructed wave
+    '''
 
-    # normalizes the signal
-    if normalize == True:
-        wave.normalize()
+    # removing the attenuation due to the FFT algorithm
+    N = len(spectrum.hs)
+    spectrum.hs /= 2/N
+
+    # returns the reconstructed wave
+    return spectrum.make_wave()
+
+def get_spectrum(wave, window='hanning', beta=6):
+    ''' Get a spectrum from a given wave
+
+    :param wave: thinkdsp.Wave object
+    :param window: windowing string, default is 'hanning'. e.g. 'hanning', 'blackman', 'bartlett', 'kaiser'
+    :return: thinkdsp.Spectrum object
+    '''
 
     # apply user defined window to the time domain waveform
     if window == 'hanning':
@@ -88,6 +136,64 @@ def get_spectrum(wave, window='hanning', normalize=False, unbias=False, beta=6):
 
     # obtain the spectrum from a wave
     result = wave.make_spectrum(full=False)
+
+    # removing the attenuation of the FFT algorithm
+    N = len(result.hs)
+    result.hs *= 2/N
+
+    # returns a thinkdsp.Spectrum object
+    return result
+
+def get_spectrum2(wave, window='hanning', normalize=False, amp=1.0, unbias=False, beta=6):
+    # unbiases the signal
+    if unbias == True:
+        wave.unbias()
+
+    # normalizes the signal
+    if normalize == True:
+        wave.normalize(amp=amp)
+
+    # apply user defined window to the time domain waveform
+    if window == 'hanning':
+        '''The Hanning window is a taper formed by using a weighted cosine'''
+
+        wave.window(np.hanning(len(wave.ys)))
+
+    elif window == 'blackman':
+        '''The Blackman window is a taper formed by using the first three terms of a summation of cosines. 
+        It was designed to have close to the minimal leakage possible. 
+        It is close to optimal, only slightly worse than a Kaiser window'''
+
+        wave.window(np.blackman(len(wave.ys)))
+
+    elif window == 'bartlett':
+        '''The Bartlett window is very similar to a triangular window, 
+        except that the end points are at zero. It is often used in signal processing for tapering a signal, 
+        without generating too much ripple in the frequency domain.'''
+
+        wave.window(np.bartlett(len(wave.ys)))
+
+    elif window == 'kaiser':
+        '''The Kaiser window is a taper formed by using a Bessel function.
+        beta    Window shape
+        0	    Rectangular
+        5	    Similar to a Hamming
+        6	    Similar to a Hanning
+        8.6	    Similar to a Blackman '''
+
+        wave.window(np.kaiser(len(wave.ys), beta=beta))
+
+    else:
+        '''The Hanning window is a taper formed by using a weighted cosine'''
+
+        wave.window(np.hanning(len(wave.ys)))
+
+    # obtain the spectrum from a wave
+    result = wave.make_spectrum(full=False)
+
+    # removing the attenuation due to the FFT algorithm
+    N = len(result.hs)
+    result.hs *= 2/N
 
     return result
 
@@ -175,7 +281,15 @@ def demodulate_steps(wave):
     # show plot
     plt.show()
 
-def demodulation_wave(wave, fc=400):
+def demodulation_wave(wave, fc1=400, fc2=800):
+    ''' computes the envelope of a wave (fc1<freq<fc2)
+
+    :param wave: thinkdsp.Wave object
+    :param fc1: first cutoff frequency
+    :param fc2: second cutoff frequency
+    :return: thinkdsp.Spectrum object
+    '''
+
     # create a copy of the original wave
     raw_wave = wave.copy()
 
@@ -183,7 +297,8 @@ def demodulation_wave(wave, fc=400):
     raw_spectrum = raw_wave.make_spectrum(full=False)
 
     # apply a high pass filter at fc1 to the raw spectrum
-    raw_spectrum.high_pass(fc)
+    raw_spectrum.high_pass(fc1)
+    raw_spectrum.low_pass(fc2)
 
     # make a time waveform from the filtered spectrum
     raw_wave_filtered = raw_spectrum.make_wave()
@@ -196,22 +311,26 @@ def demodulation_wave(wave, fc=400):
                                               framerate=raw_wave_filtered.framerate)
 
     # obtain the spectrum from the envelop
-    raw_spectrum_filtered_envelop = raw_wave_filtered_envelop.make_spectrum(full=False)
+    result = raw_wave_filtered_envelop.make_spectrum(full=False)
 
-    # create a result dictionary
-    result_dict = {}
-    result_dict.update({'amps': raw_spectrum_filtered_envelop.amps})
-    result_dict.update({'power': raw_spectrum_filtered_envelop.power})
-    result_dict.update({'freqs': raw_spectrum_filtered_envelop.fs})
+    # returns the result
+    return result
 
-    return result_dict
+def demodulation_spectrum(spectrum, fc1=400, fc2=800):
+    ''' computes the envelope of a spectrum (fc1<freq<fc2)
 
-def demodulation_spectrum(spectrum, fc=400):
+    :param spectrum: thinkdsp.Spectrum object
+    :param fc1: first cutoff frequency
+    :param fc2: second cutoff frequency
+    :return: tinkdsp.Spectrum object
+    '''
+
     # make a spectrum copy of the original spectrum
     raw_spectrum = spectrum.copy()
 
     # apply a high pass filter at fc1 to the raw spectrum
-    raw_spectrum.high_pass(fc)
+    raw_spectrum.high_pass(fc1)
+    raw_spectrum.low_pass(fc2)
 
     # make a time waveform from the filtered spectrum
     raw_wave_filtered = raw_spectrum.make_wave()
@@ -224,15 +343,43 @@ def demodulation_spectrum(spectrum, fc=400):
                                               framerate=raw_wave_filtered.framerate)
 
     # obtain the spectrum from the envelop
-    raw_spectrum_filtered_envelop = raw_wave_filtered_envelop.make_spectrum(full=False)
+    result = raw_wave_filtered_envelop.make_spectrum(full=False)
+
+    # returns the result
+    return result
+
+def spectrum_to_dict(s):
+    ''' returns a given dictionary of a spectrum object
+
+    :param s: thinkdsp.Spectrum object
+    :return: result dictionary
+    '''
 
     # create a result dictionary
-    result_dict = {}
-    result_dict.update({'amps': raw_spectrum_filtered_envelop.amps})
-    result_dict.update({'power': raw_spectrum_filtered_envelop.power})
-    result_dict.update({'freqs': raw_spectrum_filtered_envelop.fs})
+    result = {}
+    result.update({'real': s.real})
+    result.update({'imag': s.imag})
+    result.update({'angles': s.angles})
+    result.update({'amps': s.amps})
+    result.update({'power': s.power})
+    result.update({'freqs': s.fs})
 
-    return result_dict
+    return result
+
+def wave_to_dict(w):
+    ''' returns a given dictionary of a wave object
+
+    :param w: thinkdsp.Wave object
+    :return: result dictionary
+    '''
+
+    # create a result dictionary
+    result = {}
+    result.update({'samples': w.ys})
+    result.update({'sample_time': w.ts})
+    result.update({'fs': w.framerate})
+
+    return result
 
 def diff_wave(w0, w1):
     '''Computes and returns the  difference between waves w1-w0.
@@ -258,68 +405,11 @@ def diff_spectrum(s0, s1):
     # returns result spectrum
     return thinkdsp.Spectrum(hs=np.abs(s1.amps-s0.amps), fs=s0.fs, framerate=s0.framerate)
 
+'''=================================================='''
+
 def main():
-    #get time domain waveform
-    wave1 = get_wave(sde_tag='test', n_tdw=8192, fs=20000)
-
-    # get another time domain waveform for testing
-    wave2 = get_wave2(sde_tag='test', n_tdw=8192, fs=20000)
-
-    # get the spectrum. default windowing = 'hanning'
-    spectrum1 = get_spectrum(wave=wave1)
-
-    # get the spectrum. default windowing = 'hanning'
-    spectrum2 = get_spectrum(wave=wave2)
-
-    # get maximum absolute difference between spectra
-    wdiff = diff_wave(w0=wave1, w1=wave2)
-    sdiff = diff_spectrum(s0=spectrum1, s1=spectrum2)
-
-    # testing functions
-    # demodulate_steps(wave=wave1)
-    # envelope = demodulation_wave(wave=wave1, fc=2000)
-    # envelope = demodulation_spectrum(spectrum=spectrum1, fc=2000)
-
-    # testing plots
-    # plt.plot(envelope['freqs'], envelope['amps'])
-
-    # create a figure
-    fig1 = plt.figure()
-    # create a subplot
-    ax = fig1.add_subplot(311)
-    # plot a wave1
-    wave1.plot(label='wave 1', color='b')
-    ax.legend()
-    # create another subplot
-    ax = fig1.add_subplot(312)
-    # plot a wave2
-    wave2.plot(label='wave 2', color='g')
-    ax.legend()
-    # create a subplot
-    ax = fig1.add_subplot(313)
-    # plot a difference
-    wdiff.plot(label='difference', color='r')
-    ax.legend()
-
-    # create a figure
-    fig2 = plt.figure()
-    # create a subplot
-    ax = fig2.add_subplot(311)
-    # plot a spectrum1
-    spectrum1.plot(label='spectrum1', color='b')
-    ax.legend()
-    # create another subplot
-    ax = fig2.add_subplot(312)
-    # plot a wave2
-    spectrum2.plot(label='spectrum2', color='g')
-    ax.legend()
-    # create a subplot
-    ax = fig2.add_subplot(313)
-    # plot a difference
-    sdiff.plot(label='difference', color='r')
-    ax.legend()
-
-    plt.show()
+    # DO SOMETHING
+    dummy = 1
 
 if __name__ == "__main__":
     # execute only if run as a script
