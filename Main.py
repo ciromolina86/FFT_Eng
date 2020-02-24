@@ -25,6 +25,9 @@ def main():
     spectrum1 = FFT_Eng.get_spectrum(wave=wave1)
     spectrum2 = FFT_Eng.get_spectrum(wave=wave2)
 
+    # obtain the spectrogram of a wave
+    spectrogram1 = wave1.make_spectrogram(seg_length=128)
+
     # get maximum absolute difference between spectra
     wdiff = FFT_Eng.diff_wave(w0=wave1, w1=wave2)
     sdiff = FFT_Eng.diff_spectrum(s0=spectrum1, s1=spectrum2)
@@ -41,6 +44,8 @@ def main():
     # demodulate_steps(wave=wave1)
     # envelope = demodulation_spectrum(spectrum=spectrum1, fc=2000)
 
+    '''============================================='''
+    '''
     # testing plots
     # create a figure
     fig1 = plt.figure()
@@ -69,7 +74,9 @@ def main():
     # plot a difference
     wdiff.plot(label='difference', color='r')
     ax.legend()
+    '''
 
+    '''
     # create a figure
     fig2 = plt.figure()
     # create a subplot
@@ -96,9 +103,9 @@ def main():
     # plot a difference
     sdiff.plot(label='difference', color='r')
     ax.legend()
+    '''
 
-    '''============================================='''
-
+    '''
     # create a pulse wave
     pulse = np.zeros(1000)
     pulse[500] = 1
@@ -121,6 +128,31 @@ def main():
     ax.legend()
 
     plt.show()
+    '''
+
+    # create a figure
+    fig4 = plt.figure()
+    # create a subplot
+    ax = fig4.add_subplot(311)
+    # plot a wave
+    wave1.plot(label='wave', color='b')
+    ax.legend()
+    # create a subplot
+    ax = fig4.add_subplot(312)
+    # plot a spectrum
+    spectrum1.plot(label='spectrum', color='g')
+    ax.legend()
+    # create a subplot
+    ax = fig4.add_subplot(313)
+    # plot a spectrogram
+    spectrogram1.plot()  # (label='spectrogram', color='r')
+    # ax.legend()
+
+    plt.show()
+
+
+    # # computes the kurtosis of a wave
+    # print(FFT_Eng.get_kurtosis(a=wave1.ys))
 
 
 
@@ -135,6 +167,7 @@ if __name__ == "__main__":
         # executes FFT functions if trigger is active
         if trigger == 1:
             main()
+
         elif trigger == 9:
             break
 

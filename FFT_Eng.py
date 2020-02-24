@@ -6,6 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import hilbert
 import json
+from scipy.stats import kurtosis
 
 def read_sde_tag(query='0'):
     ''' read latest value of sde tag
@@ -404,6 +405,11 @@ def diff_spectrum(s0, s1):
 
     # returns result spectrum
     return thinkdsp.Spectrum(hs=np.abs(s1.amps-s0.amps), fs=s0.fs, framerate=s0.framerate)
+
+def get_kurtosis(a):
+    # returns the kurtosis of a dataset
+    return  kurtosis(a=a)
+
 
 '''=================================================='''
 
