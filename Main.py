@@ -9,8 +9,9 @@ from scipy.signal import hilbert
 import json
 import FFT_Eng
 import time
-
-
+from influxdb import InfluxDBClient
+import InfluxDB_Eng
+'''================================================'''
 
 def main():
     # DO SOMETHING
@@ -21,9 +22,14 @@ def main():
     wave1 = FFT_Eng.read_wave(sde_tag='test', n_tdw=8192, fs=20000)
     wave2 = FFT_Eng.read_wave2(sde_tag='test', n_tdw=8192, fs=20000)
 
+    # testing differentiate & integrate filters
+    wave3 = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=1000)
+    wave4 = wave3.make_spectrum().differentiate().make_wave()
+
     # get the spectrum. default windowing = 'hanning'
     spectrum1 = FFT_Eng.get_spectrum(wave=wave1)
     spectrum2 = FFT_Eng.get_spectrum(wave=wave2)
+
 
     # obtain the spectrogram of a wave
     spectrogram1 = wave1.make_spectrogram(seg_length=128)
@@ -130,6 +136,7 @@ def main():
     plt.show()
     '''
 
+    '''
     # create a figure
     fig4 = plt.figure()
     # create a subplot
@@ -149,11 +156,10 @@ def main():
     # ax.legend()
 
     plt.show()
-
+    '''
 
     # # computes the kurtosis of a wave
     # print(FFT_Eng.get_kurtosis(a=wave1.ys))
-
 
 
 if __name__ == "__main__":
@@ -166,7 +172,8 @@ if __name__ == "__main__":
 
         # executes FFT functions if trigger is active
         if trigger == 1:
-            main()
+            # main()
+            InfluxDB_Eng.writeTestValues2()
 
         elif trigger == 9:
             break

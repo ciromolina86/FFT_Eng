@@ -408,12 +408,22 @@ def diff_spectrum(s0, s1):
 
 def get_kurtosis(a):
     # returns the kurtosis of a dataset
-    return  kurtosis(a=a)
+    return kurtosis(a=a)
 
 def plot_kurtogram():
     # placeholder for kurtogram function
     # plots the kurtogram
     print('plotting kurtogram')
+
+def integrate(s):
+    """Apply the integration filter.
+
+    returns: new Spectrum
+    """
+    new = s.copy()
+    new.hs /= 2 * np.pi * 1j * new.fs
+    return new
+
 
 '''=================================================='''
 
