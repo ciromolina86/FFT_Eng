@@ -410,6 +410,10 @@ def get_kurtosis(a):
     # returns the kurtosis of a dataset
     return  kurtosis(a=a)
 
+def plot_kurtogram():
+    # placeholder for kurtogram function
+    # plots the kurtogram
+    print('plotting kurtogram')
 
 '''=================================================='''
 
