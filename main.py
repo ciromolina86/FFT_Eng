@@ -22,6 +22,7 @@ def main():
 '''================================================'''
 
 def test():
+    '''
     # read time domain waveforms
     wave1 = fft_eng.read_wave(sde_tag='test', n_tdw=8192, fs=20000)
     wave2 = fft_eng.read_wave2(sde_tag='test', n_tdw=8192, fs=20000)
@@ -48,7 +49,7 @@ def test():
     # testing functions
     # demodulate_steps(wave=wave1)
     # envelope = demodulation_spectrum(spectrum=spectrum1, fc=2000)
-
+    '''
     '''============================================='''
     '''
     # testing plots
@@ -157,21 +158,33 @@ def test():
     plt.show()
     '''
 
+    '''
     # # computes the kurtosis of a wave
     # print(FFT_Eng.get_kurtosis(a=wave1.ys))
+    '''
 
+    '''
     # testing differentiate & integrate filters
-    wave3 = (thinkdsp.SinSignal(freq=10, amp=1, offset=0)).make_wave(duration=1, start=0, framerate=1000)
-    wave4 = fft_eng.get_vel_from_acc(wave3)
-    wave5 = fft_eng.get_dis_from_acc(wave3)
+    wave3 = (thinkdsp.SinSignal(freq=1, amp=1, offset=)).make_wave(duration=1, start=0, framerate=100)
+    wave3.ys += 1
 
-    wave3.plot(label='acc')
+    wave4 = fft_eng.integrate(wave3)
+    # wave5 = fft_eng.derivate(wave3)
+
+    print(wave3.ys[0], wave4.ys[0])
+
+    # fft_eng.get_spectrum(wave3).plot()
+    wave3.plot(label='orig')
     plt.legend()
-    wave4.plot(label='vel')
+    wave4.plot(label='integrated')
     plt.legend()
-    wave5.plot(label='dis')
-    plt.legend()
+    # wave5.plot(label='derivated')
+    # plt.legend()
     plt.show()
+    '''
+
+
+
 
 
     # write values to influxdb for testing grafana dashboard
