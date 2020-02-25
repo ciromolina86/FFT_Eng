@@ -1,7 +1,7 @@
 from influxdb import InfluxDBClient
 from ThinkX import thinkdsp
 
-
+'''=================================================='''
 
 wave = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=1000)
 spectrum = wave.make_spectrum()

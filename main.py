@@ -1,3 +1,4 @@
+'''================================================'''
 '''import useful modules'''
 import matplotlib.pyplot as plt
 from ThinkX import thinkdsp
@@ -11,36 +12,23 @@ import fft_eng
 import time
 from influxdb import InfluxDBClient
 import influxdb_eng
+
 '''================================================'''
 
 def main():
     # DO SOMETHING
     print('main ran!')
 
-    '''testing functions'''
+'''================================================'''
+
+def test():
     # read time domain waveforms
     wave1 = fft_eng.read_wave(sde_tag='test', n_tdw=8192, fs=20000)
     wave2 = fft_eng.read_wave2(sde_tag='test', n_tdw=8192, fs=20000)
 
-    # testing differentiate & integrate filters
-    wave3 = (thinkdsp.SinSignal(freq=10, amp=1, offset=0)+thinkdsp.).make_wave(duration=1, start=0, framerate=1000)
-    wave4 = wave3.make_spectrum().differentiate().make_wave()
-    temp = wave4.make_spectrum().integrate()
-    temp.hs[0]=0
-    wave5 = temp.make_wave()
-
-    # wave3.plot(label='original')
-    # plt.legend()
-    wave4.plot(label='mod1')
-    plt.legend()
-    wave5.plot(label='mod2')
-    plt.legend()
-    plt.show()
-
     # get the spectrum. default windowing = 'hanning'
     spectrum1 = fft_eng.get_spectrum(wave=wave1)
     spectrum2 = fft_eng.get_spectrum(wave=wave2)
-
 
     # obtain the spectrogram of a wave
     spectrogram1 = wave1.make_spectrogram(seg_length=128)
@@ -172,6 +160,24 @@ def main():
     # # computes the kurtosis of a wave
     # print(FFT_Eng.get_kurtosis(a=wave1.ys))
 
+    # testing differentiate & integrate filters
+    wave3 = (thinkdsp.SinSignal(freq=10, amp=1, offset=0)).make_wave(duration=1, start=0, framerate=1000)
+    wave4 = fft_eng.get_vel_from_acc(wave3)
+    wave5 = fft_eng.get_dis_from_acc(wave3)
+
+    wave3.plot(label='acc')
+    plt.legend()
+    wave4.plot(label='vel')
+    plt.legend()
+    wave5.plot(label='dis')
+    plt.legend()
+    plt.show()
+
+
+    # write values to influxdb for testing grafana dashboard
+    # influxdb_eng.writeTestValues2()
+
+'''================================================'''
 
 if __name__ == "__main__":
     '''execute only if run as a main script'''
@@ -185,13 +191,13 @@ if __name__ == "__main__":
         if trigger == 1:
             # execute main routine
             main()
+            test()
             break
 
-            # write values to influxdb for testing grafana dashboard
-            # influxdb_eng.writeTestValues2()
 
         elif trigger == 9:
             break
 
         # wait for 1 second
         time.sleep(1)
+'''================================================'''

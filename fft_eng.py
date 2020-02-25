@@ -508,7 +508,9 @@ def plot_kurtogram():
 
 def main():
     # DO SOMETHING
-    dummy = 1
+    print('fft_eng ran as main')
+
+'''=================================================='''
 
 if __name__ == "__main__":
     # execute only if run as a script
