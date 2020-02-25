@@ -7,10 +7,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import hilbert
 import json
-import FFT_Eng
+import fft_eng
 import time
 from influxdb import InfluxDBClient
-import InfluxDB_Eng
+import influxdb_eng
 '''================================================'''
 
 def main():
@@ -19,32 +19,43 @@ def main():
 
     '''testing functions'''
     # read time domain waveforms
-    wave1 = FFT_Eng.read_wave(sde_tag='test', n_tdw=8192, fs=20000)
-    wave2 = FFT_Eng.read_wave2(sde_tag='test', n_tdw=8192, fs=20000)
+    wave1 = fft_eng.read_wave(sde_tag='test', n_tdw=8192, fs=20000)
+    wave2 = fft_eng.read_wave2(sde_tag='test', n_tdw=8192, fs=20000)
 
     # testing differentiate & integrate filters
-    wave3 = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=1000)
+    wave3 = (thinkdsp.SinSignal(freq=10, amp=1, offset=0)+thinkdsp.).make_wave(duration=1, start=0, framerate=1000)
     wave4 = wave3.make_spectrum().differentiate().make_wave()
+    temp = wave4.make_spectrum().integrate()
+    temp.hs[0]=0
+    wave5 = temp.make_wave()
+
+    # wave3.plot(label='original')
+    # plt.legend()
+    wave4.plot(label='mod1')
+    plt.legend()
+    wave5.plot(label='mod2')
+    plt.legend()
+    plt.show()
 
     # get the spectrum. default windowing = 'hanning'
-    spectrum1 = FFT_Eng.get_spectrum(wave=wave1)
-    spectrum2 = FFT_Eng.get_spectrum(wave=wave2)
+    spectrum1 = fft_eng.get_spectrum(wave=wave1)
+    spectrum2 = fft_eng.get_spectrum(wave=wave2)
 
 
     # obtain the spectrogram of a wave
     spectrogram1 = wave1.make_spectrogram(seg_length=128)
 
     # get maximum absolute difference between spectra
-    wdiff = FFT_Eng.diff_wave(w0=wave1, w1=wave2)
-    sdiff = FFT_Eng.diff_spectrum(s0=spectrum1, s1=spectrum2)
+    wdiff = fft_eng.diff_wave(w0=wave1, w1=wave2)
+    sdiff = fft_eng.diff_spectrum(s0=spectrum1, s1=spectrum2)
 
     # reconstruct the wave
-    rec_wave1 = FFT_Eng.get_wave(spectrum=spectrum1)
-    rec_wave2 = FFT_Eng.get_wave(spectrum=spectrum2)
+    rec_wave1 = fft_eng.get_wave(spectrum=spectrum1)
+    rec_wave2 = fft_eng.get_wave(spectrum=spectrum2)
 
     #  get envelope from spectra
-    envelope1 = FFT_Eng.demodulation_wave(wave=wave1, fc1=2000, fc2=5000)
-    envelope2 = FFT_Eng.demodulation_wave(wave=wave1, fc1=2000, fc2=5000)
+    envelope1 = fft_eng.demodulation_wave(wave=wave1, fc1=2000, fc2=5000)
+    envelope2 = fft_eng.demodulation_wave(wave=wave1, fc1=2000, fc2=5000)
 
     # testing functions
     # demodulate_steps(wave=wave1)
@@ -172,8 +183,12 @@ if __name__ == "__main__":
 
         # executes FFT functions if trigger is active
         if trigger == 1:
-            # main()
-            InfluxDB_Eng.writeTestValues2()
+            # execute main routine
+            main()
+            break
+
+            # write values to influxdb for testing grafana dashboard
+            # influxdb_eng.writeTestValues2()
 
         elif trigger == 9:
             break

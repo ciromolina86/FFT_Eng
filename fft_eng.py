@@ -406,6 +406,95 @@ def diff_spectrum(s0, s1):
     # returns result spectrum
     return thinkdsp.Spectrum(hs=np.abs(s1.amps-s0.amps), fs=s0.fs, framerate=s0.framerate)
 
+def get_vel_from_acc(acc):
+    ''' Integrate acceleration to get the velocity
+
+    :param acc: thinkdsp.Wave object (acceleration wave)
+    :return: thinkdsp.Wave object (velocity wave)
+    '''
+    # creates a copy of the acceleration wave, gets its spectrum, applies an integration filter
+    vel_spectrum = acc.copy().make_spectrum().integrate()
+
+    # replaces the NaN value (due to division by zero) with zero
+    vel_spectrum.hs[0] = 0
+
+    # returns the new velocity wave
+    return vel_spectrum.make_wave()
+
+def get_vel_from_dis(dis):
+    ''' Derivative displacement to get the velocity
+
+    :param dis: thinkdsp.Wave object (displacement wave)
+    :return: thinkdsp.Wave object (velocity wave)
+    '''
+    # creates a copy of the displacement wave, gets its spectrum, applies an differentiation filter
+    vel_spectrum = dis.copy().make_spectrum().differentiate()
+
+    # returns the new velocity wave
+    return vel_spectrum.make_wave()
+
+def get_dis_from_vel(vel):
+    ''' Integrate velocity to get the displacement
+
+    :param acc: thinkdsp.Wave object (velocity wave)
+    :return: thinkdsp.Wave object (displacement wave)
+    '''
+    # creates a copy of the velocity wave, gets its spectrum, applies an integration filter
+    dis_spectrum = vel.copy().make_spectrum().integrate()
+
+    # replaces the NaN value (due to division by zero) with zero
+    dis_spectrum.hs[0] = 0
+
+    # returns the new displacement wave
+    return dis_spectrum.make_wave()
+
+def get_dis_from_acc(acc):
+    ''' Integrate acceleration twice to get the displacement
+
+    :param acc: thinkdsp.Wave object (acceleration wave)
+    :return: thinkdsp.Wave object (displacement wave)
+    '''
+    # gets the velocity wave from the acceleration wave
+    vel = get_vel_from_acc(acc=acc)
+
+    # creates a copy of the velocity wave, gets its spectrum, applies an integration filter
+    dis_spectrum = vel.copy().make_spectrum().integrate()
+
+    # replaces the NaN value (due to division by zero) with zero
+    dis_spectrum.hs[0] = 0
+
+    # returns the new displacement wave
+    return dis_spectrum.make_wave()
+
+def get_acc_from_dis(dis):
+    ''' Derivate displacement twice to get the acceleration
+
+    :param dis: thinkdsp.Wave object (displacement wave)
+    :return: thinkdsp.Wave object (acceleration wave)
+    '''
+    # gets the velocity wave from the displacement wave
+    vel = get_vel_from_dis(dis=dis)
+
+    # creates a copy of the velocity wave, gets its spectrum, applies an differentiation filter
+    acc_spectrum = vel.copy().make_spectrum().differentiate()
+
+    # returns the new acceleration wave
+    return acc_spectrum.make_wave()
+
+def get_acc_from_vel(vel):
+    ''' Derivate velocity to get the acceleration
+
+    :param dis: thinkdsp.Wave object (velocity wave)
+    :return: thinkdsp.Wave object (acceleration wave)
+    '''
+    # creates a copy of the velocity wave, gets its spectrum, applies an differentiation filter
+    acc_spectrum = vel.copy().make_spectrum().differentiate()
+
+    # returns the new acceleration wave
+    return acc_spectrum.make_wave()
+
+
+
 def get_kurtosis(a):
     # returns the kurtosis of a dataset
     return kurtosis(a=a)
@@ -414,16 +503,6 @@ def plot_kurtogram():
     # placeholder for kurtogram function
     # plots the kurtogram
     print('plotting kurtogram')
-
-def integrate(s):
-    """Apply the integration filter.
-
-    returns: new Spectrum
-    """
-    new = s.copy()
-    new.hs /= 2 * np.pi * 1j * new.fs
-    return new
-
 
 '''=================================================='''
 
