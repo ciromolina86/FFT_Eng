@@ -16,12 +16,33 @@ import influxdb_eng
 '''================================================'''
 
 def main():
-    # DO SOMETHING
+    '''
+
+    :return:
+    '''
+
     print('main ran!')
+
+    while False:
+        # read trigger tag
+        # trigger = FFT_Eng.read_sde_tag(query='trigger')
+        trigger = int(input('enter trigger value: '))
+
+        # executes FFT functions if trigger is active
+        if trigger == 1:
+            continue
+
+        elif trigger == 9:
+            break
+
+        # wait for 1 second
+        time.sleep(1)
 
 '''================================================'''
 
-def test():
+def test1():
+    print('test1 ran!')
+
     '''
     # read time domain waveforms
     wave1 = fft_eng.read_wave(sde_tag='test', n_tdw=8192, fs=20000)
@@ -158,59 +179,105 @@ def test():
     plt.show()
     '''
 
-    '''
-    # # computes the kurtosis of a wave
-    # print(FFT_Eng.get_kurtosis(a=wave1.ys))
+def test2():
+    '''testing differentiation & integration filters
+
+    :return:
     '''
 
-    '''
-    # testing differentiate & integrate filters
-    wave3 = (thinkdsp.SinSignal(freq=1, amp=1, offset=)).make_wave(duration=1, start=0, framerate=100)
-    wave3.ys += 1
+    print('test2 ran!')
 
+    # create a cosine wave
+    wave1 = (thinkdsp.SinSignal(freq=1, amp=1, offset=0)).make_wave(duration=1, start=0, framerate=100)
+
+    # add some dc level
+    # wave1.ys += 1
+
+    # apply differentiation filter
+    wave2 = fft_eng.derivate(wave1)
+    wave3 = fft_eng.derivate(wave2)
+
+    # print dc levels for all signals
+    print('starting points: {}, {}, {}'.format(wave1.ys[0], wave2.ys[0], wave3.ys[0]))
+
+    # print maximum for all signals
+    print('max amplitudes: {}, {}, {}'.format(np.max(wave1.ys), np.max(wave2.ys), np.max(wave3.ys)))
+
+    # plot the waves
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    wave1.plot(label='orig')
+    plt.legend()
+    wave2.plot(label='1st deriv')
+    plt.legend()
+    wave3.plot(label='2nd deriv')
+    plt.legend()
+    plt.plot(wave1.ts, np.ones(len(wave1)), color='r')
+
+    # plt.show()
+
+    # apply integration filter
     wave4 = fft_eng.integrate(wave3)
-    # wave5 = fft_eng.derivate(wave3)
+    wave5 = fft_eng.integrate(wave4)
 
-    print(wave3.ys[0], wave4.ys[0])
+    # print dc levels for all signals
+    print('starting points: {}, {}, {}'.format(wave3.ys[0], wave4.ys[0], wave5.ys[0]))
 
-    # fft_eng.get_spectrum(wave3).plot()
+    # print maximum for all signals
+    print('max amplitudes: {}, {}, {}'.format(np.max(wave3.ys), np.max(wave4.ys), np.max(wave5.ys)))
+
+    # plot the waves
+    fig2 = plt.figure()
+    ax = fig2.add_subplot()
     wave3.plot(label='orig')
     plt.legend()
-    wave4.plot(label='integrated')
+    wave4.plot(label='1st integ')
     plt.legend()
-    # wave5.plot(label='derivated')
-    # plt.legend()
+    wave5.plot(label='2nd integ')
+    plt.legend()
+    plt.plot(wave1.ts, np.ones(len(wave1)), color='r')
+
     plt.show()
+
+def test3():
+    ''' testing writing data to influxdb
+
+    :return:
     '''
 
-
-
-
+    print('test3 ran!')
 
     # write values to influxdb for testing grafana dashboard
-    # influxdb_eng.writeTestValues2()
+    influxdb_eng.writeTestValues2()
+
+def test4():
+    ''' testing kurtosis and kurtogram analysis
+
+    :return:
+    '''
+
+    # create a cosine wave
+    wave1 = (thinkdsp.SinSignal(freq=1, amp=1, offset=0)).make_wave(duration=1, start=0, framerate=100)
+
+    # computes the kurtosis of a wave
+    print(fft_eng.get_kurtosis(a=wave1.ys))
+
 
 '''================================================'''
 
 if __name__ == "__main__":
     '''execute only if run as a main script'''
 
-    while True:
-        # read trigger tag
-        # trigger = FFT_Eng.read_sde_tag(query='trigger')
-        trigger = int(input('enter trigger value: '))
+    # testing
+    # test1()
 
-        # executes FFT functions if trigger is active
-        if trigger == 1:
-            # execute main routine
-            main()
-            test()
-            break
+    # testing derivation and integration of waves
+    test2()
 
+    # testing writing data to influxdb
+    # test3()
 
-        elif trigger == 9:
-            break
+    # testing kurtosis and kurtograms
+    # test4()
 
-        # wait for 1 second
-        time.sleep(1)
 '''================================================'''
