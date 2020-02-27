@@ -11,7 +11,7 @@ import json
 import fft_eng
 import time
 from influxdb import InfluxDBClient
-import influxdb_eng
+import influxdb_conn
 
 '''================================================'''
 
@@ -248,7 +248,7 @@ def test3():
     print('test3 ran!')
 
     # write values to influxdb for testing grafana dashboard
-    influxdb_eng.writeTestValues2()
+    influxdb_conn.writeTestValues2()
 
 def test4():
     ''' testing kurtosis and kurtogram analysis
