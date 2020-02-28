@@ -26,12 +26,14 @@ from wave import open as open_wave
 
 import matplotlib.pyplot as pyplot
 
-try:
-    from IPython.display import Audio
-except:
-    warnings.warn(
-        "Can't import Audio from IPython.display; " "Wave.make_audio() will not work."
-    )
+
+# WQ commented sdc incompatible
+# try:
+#     from IPython.display import Audio
+# except:
+#     warnings.warn(
+#         "Can't import Audio from IPython.display; " "Wave.make_audio() will not work."
+#     )
 
 PI2 = math.pi * 2
 
@@ -1051,11 +1053,12 @@ class Wave:
         self.write(filename)
         play_wave(filename)
 
-    def make_audio(self):
-        """Makes an IPython Audio object.
-        """
-        audio = Audio(data=self.ys.real, rate=self.framerate)
-        return audio
+    # WQ commented sdc incompatible
+    # def make_audio(self):
+    #     """Makes an IPython Audio object.
+    #     """
+    #     audio = Audio(data=self.ys.real, rate=self.framerate)
+    #     return audio
 
 
 def unbias(ys):
