@@ -1,21 +1,18 @@
-#===================================================================================================
+# ===================================================================================================
 #  Revision History (Release 1.0.0.0)
-#===================================================================================================
+# ===================================================================================================
 # VERSION             AUTHOR/                                     DESCRIPTION OF CHANGE
 # OLD/NEW             DATE
-#===================================================================================================
+# ===================================================================================================
 # --/1.0.0.0	    | Ciro Molina CM                           |
 #                   | Yandy Peres YP                           |
 #                   | William Quintana WQ	                   | Initial Development.
 
 #         		    | 28-Feb-2020   	                       |
-#====================================================================================================
+# ====================================================================================================
 # 1.0.0.0/1.0.0.1	| XXX        	                           | Update class and methods  comments.
 #         		    | XX-XXX-XXXX 	                           |
-#====================================================================================================
-
-
-
+# ====================================================================================================
 
 
 import json
@@ -30,7 +27,7 @@ from redisdb import RedisDB
 
 def getinrtmatrix(intagsstr):
     """
-    This function will read tags values based on the tag IDs
+    This function will read SDE tags values based on the tag IDs
     :param
         intagsstr: string  (List of tags IDs, comma separated )
     :return:
@@ -46,6 +43,7 @@ def getinrtmatrix(intagsstr):
     input_tags_timestamp = []
     redis_retry = True
     redis_retry_counter = 0
+    rt_redis_data = RedisDB()
 
     # Convert Input Tags strings to List
     internaltagidlist = intagsstr.split(",")
@@ -90,3 +88,53 @@ def getinrtmatrix(intagsstr):
         input_tags_values = np.asarray(input_tags_values)
 
     return input_timestamp, input_tags_values
+
+
+def saveoutrtmatrix(ts, outtagsstr, outputvaluesdic):
+    """
+    This function will write SDE values to tags in redis based on theirs tagIds
+
+    :param ts: string
+    :param outtagsstr: string
+    :param outputvaluesdic:
+    :return: python list
+    """
+    # Local Initialization
+    intagsstr_redis_list = []
+    output_list = []
+    rt_redis_data = RedisDB()
+
+    # Convert Input Tags strings to List
+    internaltagidlist = outtagsstr.split(",")
+
+    # Get Tags Amount
+    n = len(internaltagidlist)
+
+    # Create a Tags IDs List to be use with Redis
+    for k in range(n):
+        intagsstr_redis_list.append("rt_data:" + str(internaltagidlist[k]))
+
+    # Check if there is not tags assigned to the inputs
+    if outtagsstr is not None:
+        for i in range(len(outputvaluesdic)):
+            outputdict = {}
+            if i != '-1':
+                outputdict.update({'id': int(internaltagidlist[i])})
+                outputdict.update({'isOnServer': 1})
+                outputdict.update({'quality': 1})
+                outputdict.update({'timestamp': ts})
+                outputdict.update({'value': str(outputvaluesdic[i])})
+
+                # Append dictionaries to the list
+                output_list.append(json.dumps(outputdict))
+            else:
+                print("{Warning} Missing Output Tags")
+        print(output_list)
+        print(intagsstr_redis_list)
+        #rt_redis_data.set_value_list(intagsstr_redis_list, output_list)
+        rt_redis_data.push_value_list("write_queue", output_list)
+
+    else:
+        print("None Output Tags have been defined")
+
+    return True
