@@ -1,9 +1,10 @@
-# def randonize():
-#   import random
-#   return random.randint(1,100)
-
 from influxdb import InfluxDBClient
+from ThinkX import thinkdsp
 
+'''=================================================='''
+
+wave = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=1000)
+spectrum = wave.make_spectrum()
 
 def writeTestValues(client):
     import datetime
@@ -1027,4 +1028,39 @@ def writeTestValues(client):
 
     # wait 1 second to create the new database
     time.sleep(1)
+
+def writeTestValues2():
+    # create a hardcoded client
+    client = InfluxDBClient(host='192.168.1.87', port=8086)
+
+    # create test database
+    DatabaseName = "vib_db_test"
+
+    # create a test table
+    TableName = "meas_table_test"
+
+    # Generating new databases
+    NewDatabaseName = DatabaseName
+    client.create_database(NewDatabaseName)
+
+    # Printing Database Name
+    print("Create database: " + NewDatabaseName)
+
+    # Switching to the new databases
+    client.switch_database(NewDatabaseName)
+
+    # Generating measurements
+    NewMeasurementName = TableName
+    # Printing Table Name
+    print("Create table: " + NewMeasurementName + " into a database " + NewDatabaseName)
+
+    # Generating points for new measurement
+    for k in spectrum.amps:
+        # Printing Point Number
+        print("Row" + str(k) + " into a table " + NewMeasurementName + " into a database " + NewDatabaseName)
+        point = [{
+            "measurement": NewMeasurementName,
+            "fields": {"fft_test": k}
+        }]
+        client.write_points(point)
 

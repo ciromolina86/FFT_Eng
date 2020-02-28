@@ -15,31 +15,6 @@ import influxdb_conn
 
 '''================================================'''
 
-def main():
-    '''
-
-    :return:
-    '''
-
-    print('main ran!')
-
-    while False:
-        # read trigger tag
-        # trigger = FFT_Eng.read_sde_tag(query='trigger')
-        trigger = int(input('enter trigger value: '))
-
-        # executes FFT functions if trigger is active
-        if trigger == 1:
-            continue
-
-        elif trigger == 9:
-            break
-
-        # wait for 1 second
-        time.sleep(1)
-
-'''================================================'''
-
 def test1():
     print('test1 ran!')
 
@@ -262,22 +237,79 @@ def test4():
     # computes the kurtosis of a wave
     print(fft_eng.get_kurtosis(a=wave1.ys))
 
+'''================================================'''
+
+def update_config_date(asset_list, asset_dic):
+    ''' read config data from MySQL
+
+    :param asset_list:
+    :param asset_dic:
+    :return:
+    '''
+    print('updating config data')
+
+    # TODO
+
+
+def init():
+    '''
+
+    :return:
+    '''
+    print('initializing config data')
+
+    # TODO
+    update_config_date(asset_list, asset_dic)
+
+def main():
+    '''
+
+    :return:
+    '''
+
+    print('main ran!')
+
+    while False:
+        # read trigger tag
+        # trigger = FFT_Eng.read_sde_tag(query='trigger')
+        trigger = int(input('enter trigger value: '))
+
+        # executes FFT functions if trigger is active
+        if trigger == 1:
+            continue
+
+        elif trigger == 9:
+            break
+
+        # wait for 1 second
+        time.sleep(1)
 
 '''================================================'''
 
 if __name__ == "__main__":
     '''execute only if run as a main script'''
 
-    # testing
-    # test1()
+    # creating global variables
+    asset_dic = {}
+    asset_list = []
 
-    # testing derivation and integration of waves
-    test2()
+    # initialization function
+    init()
 
-    # testing writing data to influxdb
-    # test3()
+    # main
 
-    # testing kurtosis and kurtograms
-    # test4()
+
 
 '''================================================'''
+
+# testing
+# test1()
+
+# testing derivation and integration of waves
+# test2()
+
+# testing writing data to influxdb
+# test3()
+
+# testing kurtosis and kurtograms
+# test4()
