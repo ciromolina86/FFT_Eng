@@ -31,7 +31,7 @@ import re
 from collections import Counter
 from operator import itemgetter
 
-import thinkplot
+from ThinkX import thinkplot
 
 import numpy as np
 import pandas
