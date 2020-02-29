@@ -1,121 +1,206 @@
-import mysql.connector
+# ===================================================================================================
+#  Revision History (Release 1.0.0.0)
+# ===================================================================================================
+# VERSION             AUTHOR/                                     DESCRIPTION OF CHANGE
+# OLD/NEW             DATE
+# ===================================================================================================
+# --/1.0.0.0	    | Ciro Molina CM                           |
+#                   | Yandy Peres YP                           |
+#                   | William Quintana WQ	                   | Initial Development.
 
-# create MySQL connection to a database
-mydb = mysql.connector.connect(host='192.168.1.147', user='root', passwd='sbrQp10', database='testdb')
-
-# create a database cursor
-mycursor = mydb.cursor()
-
-# create a SQL query
-sql_query = 'SELECT * FROM table1 WHERE row="value"'
-
-# execute SQL query
-mycursor.execute(sql_query)
-
-# fetch results
-myresults = mycursor.fetchall()
-
-# process the results
-for row in myresults:
-    print(row)
+#         		    | 29-Feb-2020   	                       |
+# ====================================================================================================
+# 1.0.0.0/1.0.0.1	| XXX        	                           | Update class and methods  comments.
+#         		    | XX-XXX-XXXX 	                           |
+# ====================================================================================================
 
 
-def william_test():
-    # Author William Quintana (WQ)
-    # Version 0.0.1
-    #
-    # Description:
-    # Make a tagReport.csv.
-    # SDC tag report that include
-    # Accses Name, Grop Name,Tag Name and Tag ID
+import MySQLdb
 
-    import json
-    import time
-    import datetime
-    import numpy as np
-    # from redisdb import RedisDB
-    import os
-    import csv
-    import pandas as pd
-    import MySQLdb
-    # from datetime import datetime
 
-    version = "0.0.1"
+# from datetime import datetime
 
-    print("Version Number: %s" % version)
+version = "0.0.1"
 
-    print("Import finished")
+print("Version Number: %s" % version)
 
-    def mysqlconnect(db_info, query):
-        # Trying to connect
-        try:
-            db_connection = MySQLdb.connect(db_info.get('hostname'), db_info.get('dbusername'), db_info.get('password'),
-                                            db_info.get('dbname'))
-            # If connection is not successful
-        except:
-            print("Can't connect to database")
-            return 0
-        # If Connection Is Successful
-        # print("Connected to Mysql")
-        # Making Cursor Object For Query Execution
-        cursor = db_connection.cursor()
-        # Executing Query
-        cursor.execute(query)
-        # Fetching Data
-        records = cursor.fetchall()
-        # Closing Database Connection
-        db_connection.close()
-        return records
+print("Import finished")
 
-    def getTagPath(db_info):
-        """
-        Return tag list
-        """
-        query = "SELECT proc.processName,groups.groupName,tags.tagName, tags.internalTagID FROM config.rt_tags_dic tags inner join config.rt_groups groups on tags.groupID = groups.groupID inner join config.rt_process proc on proc.processID = groups.processID"
+
+def mysqlconnect(db_info, query):
+    """
+    connect to the database
+
+    :param db_info: dictionary {'hostname': "127.0.0.1",'dbusername': "root",'password': "sbrQp10",'dbname': "data"}
+    :param query: string
+    :return:
+    """
+    # Trying to connect
+    try:
+        db_connection = MySQLdb.connect(db_info.get('hostname'), db_info.get('dbusername'), db_info.get('password'),
+                                        db_info.get('dbname'))
+        # If connection is not successful
+    except:
+        print("Can't connect to database")
+        return 0
+    # If Connection Is Successful
+    # print("Connected to Mysql")
+    # Making Cursor Object For Query Execution
+    cursor = db_connection.cursor()
+    # Executing Query
+    cursor.execute(query)
+    # Fetching Data
+    records = cursor.fetchall()
+    # Closing Database Connection
+    db_connection.close()
+    return records
+
+
+def getTagPath(db_info):
+    """
+    Uses query to look for all the Vibration tags info like
+    Assets, Tags Groups, Tags Name, Tags ID
+
+    :param db_info:
+    :return:
+    """
+    query = "SELECT proc.processName,groups.groupName,tags.tagName, tags.internalTagID FROM config.rt_tags_dic tags inner join config.rt_groups groups on tags.groupID = groups.groupID inner join config.rt_process proc on proc.processID = groups.processID WHERE proc.processName LIKE 'VIB_%'"
+
+    try:
         tags = mysqlconnect(db_info, query)
         return tags
+    except:
+        print("Failing function to get the tags ")
 
-    def writeLisToCsv(tags, path):
-        """
-        Fill the object
-        "tag_id_list":[id1,id2,....], "tag_path_list":["accsessName1/groupName1/tagName1","accsessName2/groupName2/tagName2"]
-        crate pandas dataframe usin the created object
-        """
-        tag_id_list = []
-        tag_path_list = []
 
-        for tag in tags:
-            tag_id_list.append(tag[3])
-            tag_path_list.append("%s/%s/%s" % (tag[0], tag[1], tag[2]))
 
-        # print(tag_path_list)
+def getvibrationassets(db_info):
+    """
+    Uses query to look for all the vibration assets
 
-        df = pd.DataFrame(data={"tag_id_list": tag_id_list, "tag_path_list": tag_path_list})
-        # print(df.values)
-        df.to_csv(path, sep=',', index=False)
+    :return:
+        assetslist: python tuple
+    """
 
-    ################################################################################################
-    # MAIN CODE
-    ################################################################################################
+    query = "SELECT processName FROM config.rt_process WHERE processName LIKE 'VIB_%'"
+    assets_list = ()
+    try:
+        temp_list = mysqlconnect(db_info, query)
+        if temp_list != ():
+            for item in temp_list:
+                assets_list = assets_list + (item[0],)
+            return assets_list
+        else:
+            print("there are not Vibration assets configured")
+    except:
+        print("Failing function to get Assets name from the SDE")
 
-    # General variables declaration
 
-    frequency = 1800  # 30 min
-    firstCicle = True
+def getTagValuesfromAssetDatabase(db_info, asset_object):
+    """
+    Description
+    Uses query to get tags values from the mysql db
 
-    print("###########################################")
-    print("# Initialization")
-    print("###########################################")
+    :param db_info:
+    :param asset_object: {asset_name:(('WF', 'EVENTID_X', 15L), ('WF', 'EVENTID_Z', 16L),.....}
+    :return: python dictionary
+    """
 
-    db_info = {}
-    db_info.update({'hostname': "127.0.0.1"})
-    db_info.update({'dbusername': "root"})
-    db_info.update({'password': "sbrQp10"})
-    db_info.update({'dbname': "data"})
+    # Init
+    try:
+        tagDictLocal = {}
+        queryTagValues = "SELECT internalTagID, value FROM data.data WHERE internalTagID ='%s' ORDER BY timeStamp DESC LIMIT 1 "  # tag_ID
 
-    tag_report_path = "/home/sdc/backup/tagReport.csv"
+        asset_tag_list = asset_object.values()
 
-    # intitialization of the sdc object
+        for tag in asset_tag_list[0]:
+            tagId = tag[2]
 
-    tagList = getTagPath(db_info)
-    writeLisToCsv(tagList, tag_report_path)
+            # Execute query to database
+            query = queryTagValues %(tagId)
+            values = mysqlconnect(db_info, query)
+            # Assign Values to tag dictionary
+            tagDictLocal[tag[1]] = values
+
+        # print(asset[0])
+        # print(tagDictLocal)
+        return tagDictLocal
+    except:
+        print("Issues with queries to the sdc database and getting tags data ")
+
+
+def getassetsattributes(db_info, assets_list):
+    """
+    Description
+    Uses query and others functions to return a list of dictionaries with information about the assets provided.
+    Example of the structure :
+        {'VIB_SENSOR': (('WF', 'EVENTID_X', 15L, 'a'), ('WF', 'EVENTID_Z', 16L, 'a'), ('WF', 'FFT_X', 17L, 'a'),
+                        ('WF', 'FFT_Z', 18L, 'a'), ('WF', 'TDW_X', 19L, 'a'), ('WF', 'TDW_Z', 20L, 'a'), ('CFG', 'LINE', 22L, 'a'),
+                        ('CFG', 'CONTROLER', 23L, 'a'), ('CFG', 'SENSOR_ID', 24L, 'a'), ('CFG', 'LOC', 25L, 'a') ....)}
+    :param assets_list:
+    :return: Python dictionary
+    """
+
+    query = "SELECT groups.groupName,tags.tagName, tags.internalTagID FROM config.rt_tags_dic tags inner join config.rt_groups groups on tags.groupID = groups.groupID inner join config.rt_process proc on proc.processID = groups.processID WHERE proc.processName = '%s'"
+    asset_att_list = []
+
+    try:
+        if assets_list != ():
+            for asset in assets_list:
+                asset_group_tags_values = ()
+                # getting group and tag info (('GROUP', 'TAG_NAME', TAG_ID),  .....
+                asset_group_tags = mysqlconnect(db_info, query%(asset))
+                # building an asset object
+                asset_object = {asset: asset_group_tags}
+                # getting tag values
+                tag_object_dict = getTagValuesfromAssetDatabase(db_info, asset_object)
+                # Add tag values to the tag info structure
+                for asset_group_tag in asset_group_tags:
+                    tag_name = asset_group_tag[1]
+                    # print("tag name")
+                    # print(tag_name)
+                    value = tag_object_dict[tag_name][0][1]
+                    # print("tag, value")
+                    # print(tag_name, value)
+                    asset_group_tag_value = asset_group_tag + (value,)
+                    # print("asset with value")
+                    # print(asset_group_tag_value)
+                    asset_group_tags_values = asset_group_tags_values + (asset_group_tag_value,)
+                    # print(" asset group ")
+                    # print(asset_group_tags_values)
+                # Building a general asset dictionary
+                asset_att_list.append({asset: asset_group_tags_values})
+            return asset_att_list
+        else:
+            print("No vibration asset when trying to get tags  ")
+
+    except:
+        print("Failing function to get the tags from Assets")
+
+
+
+
+
+# ################################################################################################
+# # MAIN CODE
+# ################################################################################################
+
+#
+# print("###########################################")
+# print("# Initialization")
+# print("###########################################")
+#
+db_info = {}
+db_info.update({'hostname': "127.0.0.1"})
+db_info.update({'dbusername': "root"})
+db_info.update({'password': "sbrQp10"})
+db_info.update({'dbname': "data"})
+
+
+assetlist = getvibrationassets(db_info)
+# print(assetlist)
+assets = getassetsattributes(db_info, assetlist)
+print(assets)
+
+
+
