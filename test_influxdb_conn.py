@@ -1,9 +1,12 @@
 from influxdb import InfluxDBClient
 from ThinkX import thinkdsp
+import pandas as pd
+import numpy as np
+import fft_eng
 
 '''=================================================='''
 
-wave = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=1000)
+wave = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=8192)
 spectrum = wave.make_spectrum()
 
 def writeTestValues(client):
@@ -1064,3 +1067,15 @@ def writeTestValues2():
         }]
         client.write_points(point)
 
+if __name__ == "__main__":
+    '''execute only if run as a main script'''
+    print('test influxdb conn ran as main!')
+
+
+
+
+    # for i in range(len(wave)):
+    #     pdf.append({'tdw_ts':wave.ts[i], 'tdw_ys':wave.ys[i]}, ignore_index=True)
+    #
+    # for i in range(len(spectrum)):
+    #     pdf.append({'fft_fs':spectrum.fs[i], 'fft_amps':spectrum.amps[i]}, ignore_index=True)
