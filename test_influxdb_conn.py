@@ -6,7 +6,7 @@ import fft_eng
 
 '''=================================================='''
 
-wave = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=8192)
+wave = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=100)
 spectrum = wave.make_spectrum()
 
 def writeTestValues(client):
@@ -1034,20 +1034,20 @@ def writeTestValues(client):
 
 def writeTestValues2():
     # create a hardcoded client
-    client = InfluxDBClient(host='192.168.1.87', port=8086)
+    client = InfluxDBClient(host='192.168.1.118', port=8086)
 
     # create test database
-    DatabaseName = "vib_db_test"
+    DatabaseName = "VIB_DB"
 
     # create a test table
-    TableName = "meas_table_test"
+    TableName = "VIB_SENSOR1"
 
     # Generating new databases
     NewDatabaseName = DatabaseName
-    client.create_database(NewDatabaseName)
+    client.create_database(DatabaseName)
 
     # Printing Database Name
-    print("Create database: " + NewDatabaseName)
+    # print("Create database: " + NewDatabaseName)
 
     # Switching to the new databases
     client.switch_database(NewDatabaseName)
@@ -1055,17 +1055,17 @@ def writeTestValues2():
     # Generating measurements
     NewMeasurementName = TableName
     # Printing Table Name
-    print("Create table: " + NewMeasurementName + " into a database " + NewDatabaseName)
+    # print("Create table: " + NewMeasurementName + " into a database " + NewDatabaseName)
 
     # Generating points for new measurement
     for k in spectrum.amps:
         # Printing Point Number
-        print("Row" + str(k) + " into a table " + NewMeasurementName + " into a database " + NewDatabaseName)
-        point = [{
+        # print("Row" + str(k) + " into a table " + NewMeasurementName + " into a database " + NewDatabaseName)
+        points = [{
             "measurement": NewMeasurementName,
-            "fields": {"fft_test": k}
+            "fields": {"WF___TDW_X": k}
         }]
-        client.write_points(point)
+        client.write_points(points)
 
 if __name__ == "__main__":
     '''execute only if run as a main script'''

@@ -1,4 +1,7 @@
 import mysql.connector
+from influxdb import InfluxDBClient
+import pandas as pd
+from influxdb import DataFrameClient
 
 class DBmysql:
     # define database configuratin parameters
@@ -97,11 +100,34 @@ class DBmysql:
         # return the asset dictionary
         return asset_dic
 
+class DBinflux:
+    # define database configuratin parameters
+    db_info = {}
+    db_info.update({'host': "192.168.1.118"})  #localhost
+    db_info.update({'port': 8086})
+    # db_info.update({'username': "root"})
+    # db_info.update({'password': "sbrQp10"})
+    db_info.update({'database': "VIB_DB"})
 
-if __name__ == "__main__":
-    '''execute only if run as a main script'''
-    print('databases_conn ran as main!')
+    def __init__(self, config=db_info):
+        self._client = DataFrameClient(**config)
 
+    @property
+    def client(self):
+        return self._client
+
+    def query(self, sql):
+        return self.client.query(sql)
+
+    def read_tdw(self, asset_name='VIB_SENSOR1'):
+        # TODO
+        print('')
+
+    def write_fft(self, asset_name='VIB_SENSOR1'):
+        # TODO
+        print('')
+
+def test_mysql():
     # create an instance of DBmysql
     # database information is hardcoded within object
     db1 = DBmysql()
@@ -119,3 +145,36 @@ if __name__ == "__main__":
     print(asset_list)
     print(asset_dic)
 
+def test_influx():
+    # create an instance of DBinflux
+    # database information is hardcoded within object
+    db1 = DBinflux()
+
+    # Initialization
+    asset_name = "VIB_SENSOR1"
+    group_tagnames = "_timestamp,WF___TDW_X"
+
+    # sql = "select * from " + asset_name
+    sql = "select " + group_tagnames + " from " + asset_name
+
+    # Execute query
+    datasets_dic = db1.query(sql)
+
+    # Get pandas dataframe
+    pdf_from_influx = datasets_dic[asset_name]
+
+    print(pdf_from_influx)
+
+
+if __name__ == "__main__":
+    # execute only if run as a script
+    print('==================================')
+    print('databases_conn ran as main script!')
+    print('==================================')
+
+    # write data to influx
+    # import test_influxdb_conn
+    # test_influxdb_conn.writeTestValues2()
+
+    # read data from influx
+    test_influx()
