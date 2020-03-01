@@ -20,11 +20,11 @@ import MySQLdb
 
 # from datetime import datetime
 
-version = "0.0.1"
-
-print("Version Number: %s" % version)
-
-print("Import finished")
+# version = "0.0.1"
+#
+# print("Version Number: %s" % version)
+#
+# print("Import finished")
 
 
 def mysqlconnect(db_info, query):
@@ -191,7 +191,7 @@ def getassetsattributes(db_info, assets_list):
 # print("###########################################")
 #
 db_info = {}
-db_info.update({'hostname': "127.0.0.1"})
+db_info.update({'hostname': "192.168.1.118"})
 db_info.update({'dbusername': "root"})
 db_info.update({'password': "sbrQp10"})
 db_info.update({'dbname': "data"})
