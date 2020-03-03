@@ -292,8 +292,6 @@ def read_influx_test_data():
     sql = "select {}, {}, {} from {} where WF___X_EVTID=$X_EVTID1;".format(X_TDW, X_EVTID, X_EVT_CHG_ID, ASSET_NAME)
     # sql = "select {} from {} where {}=$X_EVTID1;".format(X_EVT_CHG_ID, ASSET_NAME, X_EVTID)
     bind_params = {'X_EVTID1': X_EVTID1}
-    # sql = "select $ts, $tdw, $eid, $eid_chg from $meas order by time".format(_timestamp, X_TDW, X_EVTID, X_EVT_CHG_ID, ASSET_NAME)
-    # bind_params = {'ts': _timestamp, 'tdw': X_TDW, 'eid': X_EVTID, 'eid_chg': X_EVT_CHG_ID, 'meas': ASSET_NAME}
 
     # Execute query
     datasets_dic = db1.query(sql, bind_params)
