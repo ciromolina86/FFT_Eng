@@ -7,7 +7,7 @@ import fft_eng
 '''=================================================='''
 
 wave = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=100)
-spectrum = wave.make_spectrum()
+spectrum = fft_eng.get_spectrum(wave=wave, window='hanning')
 
 def writeTestValues(client):
     import datetime
@@ -1034,13 +1034,13 @@ def writeTestValues(client):
 
 def writeTestValues2():
     # create a hardcoded client
-    client = InfluxDBClient(host='192.168.1.118', port=8086)
+    client = InfluxDBClient(host='192.168.21.134', port=8086)
 
     # create test database
     DatabaseName = "VIB_DB"
 
     # create a test table
-    TableName = "VIB_SENSOR1"
+    TableName = "VIB_SEN1"
 
     # Generating new databases
     NewDatabaseName = DatabaseName
@@ -1058,18 +1058,20 @@ def writeTestValues2():
     # print("Create table: " + NewMeasurementName + " into a database " + NewDatabaseName)
 
     # Generating points for new measurement
-    for k in spectrum.amps:
+    for k in wave.ys:
         # Printing Point Number
         # print("Row" + str(k) + " into a table " + NewMeasurementName + " into a database " + NewDatabaseName)
         points = [{
             "measurement": NewMeasurementName,
-            "fields": {"WF___TDW_X": k}
+            "fields": {"WF___X_TDW": k}
         }]
-        client.write_points(points)
+        client.write_points(points, time_precision='ms')
 
 if __name__ == "__main__":
     '''execute only if run as a main script'''
     print('test influxdb conn ran as main!')
+
+    writeTestValues2()
 
 
 
