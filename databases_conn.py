@@ -1,7 +1,11 @@
 import mysql.connector
-from influxdb import InfluxDBClient
-import pandas as pd
 from influxdb import DataFrameClient
+from influxdb import InfluxDBClient
+
+import pandas as pd
+import numpy as np
+from ThinkX import thinkdsp
+import fft_eng
 
 class DBmysql:
     # define database configuratin parameters
@@ -101,15 +105,15 @@ class DBmysql:
         return asset_dic
 
 class DBinflux:
-    # define database configuratin parameters
+    '''# define database configuration parameters
     db_info = {}
-    db_info.update({'host': "192.168.1.118"})  #localhost
+    db_info.update({'host': "localhost"})
     db_info.update({'port': 8086})
     # db_info.update({'username': "root"})
     # db_info.update({'password': "sbrQp10"})
-    db_info.update({'database': "VIB_DB"})
+    db_info.update({'database': "VIB_DB"})'''
 
-    def __init__(self, config=db_info):
+    def __init__(self, config):
         self._client = DataFrameClient(**config)
 
     @property
@@ -117,15 +121,15 @@ class DBinflux:
         return self._client
 
     def query(self, sql):
-        return self.client.query(sql)
+        return self.client.query(sql)  #, epoch='ms'
 
     def read_tdw(self, asset_name='VIB_SENSOR1'):
         # TODO
         print('')
 
-    def write_fft(self, asset_name='VIB_SENSOR1'):
-        # TODO
-        print('')
+    def write_points(self, pdf, meas):
+        self.client.write_points(dataframe=pdf, measurement=meas, time_precision='ms')
+
 
 def test_mysql():
     # create an instance of DBmysql
@@ -146,24 +150,82 @@ def test_mysql():
     print(asset_dic)
 
 def test_influx():
-    # create an instance of DBinflux
-    # database information is hardcoded within object
-    db1 = DBinflux()
-
     # Initialization
-    asset_name = "VIB_SENSOR1"
-    group_tagnames = "_timestamp,WF___TDW_X"
+    DATABASE_NAME = 'VIB_DB'
+    ASSET_NAME = "VIB_SEN1"
+    _timestamp = '_timestamp'
+    X_EVTID = 'WF___X_EVTID'
+    X_EVT_CHG_ID = 'WF___X_EVT_CHG_ID'
+    X_FFT = 'WF___X_FFT'
+    X_FFT_RED = 'WF___X_FFT_RED'
+    X_FREQ = 'WF___X_FREQ'
+    X_FREQ_RED = 'WF___X_FREQ_RED'
+    X_TDW = 'WF___X_TDW'
+    X_TDW_RED = 'WF___X_TDW_RED'
+    Z_EVTID = 'WF___Z_EVTID'
+    Z_EVT_CHG_ID = 'WF___Z_EVT_CHG_ID'
+    Z_FFT = 'WF___Z_FFT'
+    Z_FFT_RED = 'WF___Z_FFT_RED'
+    Z_FREQ = 'WF___Z_FREQ'
+    Z_FREQ_RED = 'WF___Z_FREQ_RED'
+    Z_TDW = 'WF___Z_TDW'
+    Z_TDW_RED = 'WF___Z_TDW_RED'
+
+    # define database configuratin parameters
+    db_info = {}
+    db_info.update({'host': "192.168.21.134"})  #localhost, 192.168.1.118
+    db_info.update({'port': 8086})
+    db_info.update({'database': DATABASE_NAME})
+
+    # create an instance of DBinflux
+    db1 = DBinflux(config=db_info)
 
     # sql = "select * from " + asset_name
-    sql = "select " + group_tagnames + " from " + asset_name
+    sql = "select {}, {} from {} order by time".format(_timestamp, X_TDW, ASSET_NAME)
+    binds = {}
 
     # Execute query
     datasets_dic = db1.query(sql)
 
     # Get pandas dataframe
-    pdf_from_influx = datasets_dic[asset_name]
+    pdf_wave = datasets_dic[ASSET_NAME]
+    pdf_wave.to_csv(path_or_buf='C://Users//cmolina//Desktop//pdf_wave.csv')
+    # print(pdf_wave)
+    print('TDW shape: {}'.format(pdf_wave.shape))
 
-    print(pdf_from_influx)
+    # create testing wave and spectrum
+    wave = thinkdsp.Wave(ys=pdf_wave[X_TDW], ts=np.linspace(0,1,100), framerate=100)
+    spectrum = fft_eng.get_spectrum(wave=wave, window='hanning')
+    spectrum_red = spectrum.copy()
+
+    # create dictionary to use on pandas dataframe creation
+    spec_dic = {X_FFT: spectrum.amps, X_FREQ: spectrum.fs,
+                X_FFT_RED: spectrum_red.amps, X_FREQ_RED: spectrum_red.fs}
+    # print(spec_dic)
+
+    # convert pandas dataframe
+    pdf_spec = pd.DataFrame(spec_dic, index=pdf_wave.index[:len(spectrum)])
+    # print(pdf_spec)
+    pdf_spec.to_csv(path_or_buf='C://Users//cmolina//Desktop//pdf_fft.csv')
+    print('FFT shape: {}'.format(pdf_spec.shape))
+
+    # write dataframe to influx database
+    db1.write_points(pdf=pdf_spec, meas=ASSET_NAME)
+
+    # prepare sql query
+    sql2 = "select {}, {}, {}, {} from {} order by time".format(_timestamp, X_TDW, X_FFT, X_FREQ, ASSET_NAME)
+
+    # query influx database
+    datasets_dic = db1.query(sql2)
+
+    # get the pandas dataframe
+    pdf_all = datasets_dic[ASSET_NAME]
+    pdf_all.to_csv(path_or_buf='C://Users//cmolina//Desktop//pdf_all.csv')
+    # print(pdf_all)
+    print('ALL shape {}'.format(pdf_all.shape))
+
+
+
 
 
 if __name__ == "__main__":
