@@ -58,16 +58,8 @@ def process_trigger(asset, axis):
     # Initialize trigger in false
     p_trigger = false
 
-    # define database configuration parameters
-    db_info = {}
-    db_info.update({'host': "localhost"})
-    db_info.update({'port': 8086})
-    # db_info.update({'username': "root"})
-    # db_info.update({'password': "sbrQp10"})
-    db_info.update({'database': "VIB_DB"})
-
     # create an instance of DBinflux
-    db1 = databases_conn.DBinflux(config=db_info)
+    db1 = databases_conn.DBinflux(config=influx_db_info)
 
     # Build the field name from the axis (X or Z)
     field = "{}_EVT_CHG_ID}".format(axis)
@@ -89,7 +81,7 @@ def process_trigger(asset, axis):
     return p_trigger, even_change_id
 
 
-def data_process(asset_name, event_id, axis='X'):
+def axis_data_process(asset_name, event_id, axis='X'):
     # Initialization
 
     _timestamp = '_timestamp'
@@ -191,7 +183,7 @@ def main():
 
             asset_list, asset_dic, tags_ids_dic = update_config_date()
 
-            axis_list = ["X", "Z"]
+
 
             # Sensor tags ids: example: tags_ids_str = "460,461,462"
             fs_tags_ids_str = ''
@@ -207,14 +199,17 @@ def main():
 
         for asset in asset_list:
 
+            # get the axis list of the asset (future)
+            axis_list = ["X", "Z"]
+
             for axis in axis_list:
                 # Get last two event_changes, Verify to event_changes are coming
                 # And check that the first one doesnt have FFT
                 p_trigger, even_change_id = process_trigger(asset=asset, axis=axis)
 
                 if p_trigger:
-                    # Run data process function to get the FFT of the TDW for the event change ID
-                    data_process(asset_name=asset, event_id=even_change_id, axis=axis)
+                    # Run axis data process function to get the FFT of the TDW for the event change ID
+                    axis_data_process(asset_name=asset, event_id=even_change_id, axis=axis)
 
 
 
