@@ -41,6 +41,48 @@ def update_config_date():
     return asset_list, asset_dic, tags_ids_dic
 
 
+def process_trigger(asset, axis):
+    """
+
+    :param asset: (Sensor name)
+    :param axis: (X or Z)
+    :return: true/false
+    """
+    # Initialize trigger in false
+    p_trigger = false
+
+    # define database configuration parameters
+    db_info = {}
+    db_info.update({'host': "localhost"})
+    db_info.update({'port': 8086})
+    # db_info.update({'username': "root"})
+    # db_info.update({'password': "sbrQp10"})
+    db_info.update({'database': "VIB_DB"})
+
+    # create an instance of DBinflux
+    db1 = databases_conn.DBinflux(config=db_info)
+
+    # Build the field name from the axis (X or Z)
+    field = "event_check_{}".format(axis)
+
+    # sql = SELECT fields FROM asset WHERE field <> "" ORDER BY id DESC LIMIT 2    (last two records)
+    sql = "SELECT {} FROM {} WHERE {} <> "" ORDER BY id DESC LIMIT 2".format(field, asset, field)
+    binds = {}
+
+    # Execute query to get the last 2 event_check dic
+    datasets_dic = db1.query(sql)
+
+    # Get a list of event_check
+    event_check_list = datasets_dic.values
+
+    if len(event_check_list) == 2:
+        fft_not_present = check_fft(event_check_list[0])
+
+        p_trigger = fft_not_present
+
+    return p_trigger
+
+
 def init():
     '''
 
@@ -103,6 +145,8 @@ def main():
 
             asset_list, asset_dic, tags_ids_dic = update_config_date()
 
+            axis_list = ["X", "Z"]
+
             # Sensor tags ids: example: tags_ids_str = "460,461,462"
             fs_tags_ids_str = ''
             for k in tags_ids_dic:
@@ -115,8 +159,21 @@ def main():
 
             print("RESETTING APPLY CHANGES FLAG")
 
+        for asset in asset_list:
 
+            for axis in axis_list:
+                # Get last two event_changes, Verify to event_changes are coming
+                # And check that the first one doesnt have FFT
+                p_trigger = process_trigger(asset=asset, axis=axis)
 
+                if p_trigger:
+
+                    # Read WTD
+
+                    # Process WTD and get FFT
+
+                    # Write FFT back to influxDB
+                    pass
 
 
 
