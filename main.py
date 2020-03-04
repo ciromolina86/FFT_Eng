@@ -16,6 +16,13 @@ import databases_conn
 from redisdb import RedisDB
 
 '''================================================'''
+# influxDB configuration
+influx_db_info = {}
+influx_db_info.update({'host': "192.168.21.134"})  # localhost, 192.168.1.118
+influx_db_info.update({'port': 8086})
+influx_db_info.update({'database': DATABASE_NAME})
+
+
 
 def update_config_date():
     ''' read config data from MySQL
@@ -73,12 +80,53 @@ def process_trigger(asset, axis):
     datasets_dic = db1.query(sql)
 
     # Get a list of event_check
-    event_check_list = datasets_dic.values
+    event_change_id__list = datasets_dic.values
 
-    if len(event_check_list) == 2:
+    if len(event_change_id__list) == 2:
         p_trigger = true
+        even_change_id = event_change_id__list[0]
 
-    return p_trigger
+    return p_trigger, even_change_id
+
+
+def data_process(asset_name, event_id, axis='X'):
+    # Initialization
+
+    _timestamp = '_timestamp'
+    fft = 'WF___{}_FFT'.format(axis)
+    fft_red = 'WF___{}_FFT_RED'.format(axis)
+    freq = 'WF___{}_FREQ'.format(axis)
+    freq_red = 'WF___{}_FREQ_RED'.format(axis)
+    tdw = 'WF___{}_TDW'.format(axis)
+    evt_chg_id = '{}_EVT_CHG_ID'.format(axis)
+
+    # create an instance of DBinflux
+    db1 = databases_conn.DBinflux(config=influx_db_info)
+
+    # sql = "select * from " + asset_name
+    sql = "select {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, asset_name, evt_chg_id, event_id)
+    binds = {}
+
+    # Execute query
+    datasets_dic = db1.query(sql)
+
+    # Get pandas data frame
+    pdf_wave = datasets_dic[asset_name]
+
+    # create  wave and spectrum
+    wave = thinkdsp.Wave(ys=pdf_wave[tdw_field], ts=np.linspace(0, 1, 100), framerate=100)
+    spectrum = fft_eng.get_spectrum(wave=wave, window='hanning')
+    spectrum_red = spectrum.copy()
+
+    # create dictionary to use on pandas data frame creation
+    spec_dic = {fft: spectrum.amps, freq: spectrum.fs,
+                fft_red: spectrum_red.amps, freq_red: spectrum_red.fs}
+
+    # convert pandas dataframe
+    pdf_spec = pd.DataFrame(spec_dic, index=pdf_wave.index[:len(spectrum)])
+
+    # write data frame to influx database
+    db1.write_points(pdf=pdf_spec, meas=asset_name)
 
 
 def init():
@@ -162,16 +210,12 @@ def main():
             for axis in axis_list:
                 # Get last two event_changes, Verify to event_changes are coming
                 # And check that the first one doesnt have FFT
-                p_trigger = process_trigger(asset=asset, axis=axis)
+                p_trigger, even_change_id = process_trigger(asset=asset, axis=axis)
 
                 if p_trigger:
+                    # Run data process function to get the FFT of the TDW for the event change ID
+                    data_process(asset_name=asset, event_id=even_change_id, axis=axis)
 
-                    # Read WTD
-
-                    # Process WTD and get FFT
-
-                    # Write FFT back to influxDB
-                    pass
 
 
 
