@@ -10,18 +10,15 @@ from scipy.signal import hilbert
 import json
 import fft_eng
 import time
-from influxdb import InfluxDBClient
 import influxdb_conn
 import databases_conn
 from redisdb import RedisDB
+from databases_conn import Config
 
-'''================================================'''
-# influxDB configuration
-influx_db_info = {}
-influx_db_info.update({'host': "192.168.21.134"})  # localhost, 192.168.1.118
-influx_db_info.update({'port': 8086})
-influx_db_info.update({'database': DATABASE_NAME})
 
+'''==================DATABASE CONFIGURATION DATA=============================='''
+influx_db_info = Config.influx
+mysql_db_info = Config.mysql
 
 
 def update_config_date():
@@ -31,17 +28,10 @@ def update_config_date():
     :param asset_dic:
     :return:
     '''
-    print('updating config data')
+    print('>>>>>>>>>>>> updating config data')
 
-    # define database configuration parameters
-    db_info = {}
-    db_info.update({'host': "192.168.21.134"})
-    db_info.update({'port': 8086})
-    db_info.update({'username': "root"})
-    db_info.update({'password': "sbrQp10"})
-    db_info.update({'database': "VIB_DB"})
 
-    db1 = databases_conn.DBmysql(db_info)
+    db1 = databases_conn.DBmysql(mysql_db_info)
 
     asset_list, asset_dic, tags_ids_dic = db1.get_vib_tags_id_dic()
 
@@ -56,7 +46,7 @@ def process_trigger(asset, axis):
     :return: true/false
     """
     # Initialize trigger in false
-    p_trigger = false
+    p_trigger = False
 
     # define database configuration parameters
     db_info = {}

@@ -10,16 +10,38 @@ import numpy as np
 from ThinkX import thinkdsp
 import fft_eng
 
+# influxDB configuration
+# influx_db_info = {}
+# influx_db_info.update({'host': "192.168.21.134"})  # localhost, 192.168.1.118
+# influx_db_info.update({'port': 8086})
+# influx_db_info.update({'database': DATABASE_NAME})
+
+
+# define database configuration parameters
+# db_info = {}
+# db_info.update({'host': "192.168.21.134"})
+# db_info.update({'port': 8086})
+# db_info.update({'username': "root"})
+# db_info.update({'password': "sbrQp10"})
+# db_info.update({'database': "VIB_DB"})
+
+
+class Config:
+
+    def __init__(self):
+        self._mysql = {'host': "localhost", 'port': 8086, 'username': "root", 'password': "sbrQp10", 'database': "VIB_DB"}
+        self._influx = {'host': "localhost", 'port': 8086, 'database': "VIB_DB"}
+
+    @property
+    def mysql(self):
+        return self._mysql
+
+    @property
+    def influx(self):
+        return self._influx
 
 # ******************* MySQL Database class *****************************************************
 class DBmysql:
-    '''# define database configuration parameters
-    db_info = {}
-    db_info.update({'host': "localhost"})
-    db_info.update({'port': 8086})
-    db_info.update({'username': "root"})
-    db_info.update({'password': "sbrQp10"})
-    db_info.update({'database': "VIB_DB"})'''
 
     def __init__(self, config):
         self._conn = mysql.connector.connect(**config)
@@ -146,13 +168,6 @@ class DBmysql:
 
 # ******************* Influx Database class *****************************************************
 class DBinflux:
-    '''# define database configuration parameters
-    db_info = {}
-    db_info.update({'host': "localhost"})
-    db_info.update({'port': 8086})
-    # db_info.update({'username': "root"})
-    # db_info.update({'password': "sbrQp10"})
-    db_info.update({'database': "VIB_DB"})'''
 
     def __init__(self, config):
         self._client = DataFrameClient(**config)
