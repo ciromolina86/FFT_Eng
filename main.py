@@ -36,24 +36,10 @@ def update_config_date():
 
     db1 = databases_conn.DBmysql(db_info)
 
-    asset_list, asset_dic, tags_id_dic = db1.get_vib_tags_id_dic()
+    asset_list, asset_dic, tags_ids_dic = db1.get_vib_tags_id_dic()
 
     return asset_list, asset_dic, tags_ids_dic
 
-def update_rt_data(tags_ids_dic):
-    # Read ts and values
-    tags_timestamp, tags_current_value = databases_conn.getinrtmatrix(tags_ids_str)
-    print("TAGS TS: %s" % tags_timestamp)
-    print("TAGS VALUES: %s" % tags_current_value)
-
-    # Read Reload Status from Redis
-    reload_status = databases_conn.redis_get_value("rt_control:reload:fft")
-    print("APPLY CHANGES STATUS: %s" % reload_status)
-
-    if reload_status == "1":
-        # Reset Apply Changes flag
-        databases_conn.redis_set_value("rt_control:reload:fft", str(0))
-        print("RESETTING APPLY CHANGES FLAG")
 
 def init():
     '''
@@ -85,22 +71,23 @@ def main():
     rt_redis_data.open_db()
 
     # Sensor tags ids: example: tags_ids_str = "460,461,462"
-    fs_tags_ids_str = ''
+    tags_ids_str = ''
     for k in tags_ids_dic:
         for group___tag, internalTagID in k:
-            fs_tags_ids_str += str(internalTagID) + ','
-    fs_tags_ids_str = fs_tags_ids_str[:-1]
+            tags_ids_str += str(internalTagID) + ','
+    tags_ids_str = tags_ids_str[:-1]
 
 
     while True:
+        # update real time data
         ################################################################################################
         # READ Tag values
         ################################################################################################
         # Read ts and values (sample frequency)
-        fs_tags_timestamp, fs_tags_current_value = databases_conn.getinrtmatrix(fs_tags_ids_str)
+        tags_timestamp, tags_current_value = databases_conn.getinrtmatrix(tags_ids_str)
         print("###########################################")
-        print("TAGS TS: %s" % fs_tags_timestamp)
-        print("TAGS VALUES: %s" % fs_tags_current_value)
+        print("TAGS TS: %s" % tags_timestamp)
+        print("TAGS VALUES: %s" % tags_current_value)
         print("###########################################")
 
         ################################################################################################
@@ -114,11 +101,11 @@ def main():
 
         if reload_status == "1":
 
-            asset_list, asset_dic, fs_tags_ids_str = update_config_date()
+            asset_list, asset_dic, tags_ids_dic = update_config_date()
 
             # Sensor tags ids: example: tags_ids_str = "460,461,462"
             fs_tags_ids_str = ''
-            for k in fs_tags_ids_str:
+            for k in tags_ids_dic:
                 for group___tag, internalTagID in k:
                     fs_tags_ids_str += str(internalTagID) + ','
             fs_tags_ids_str = fs_tags_ids_str[:-1]
@@ -127,7 +114,6 @@ def main():
             databases_conn.redis_set_value("rt_control:reload:fft", str(0))
 
             print("RESETTING APPLY CHANGES FLAG")
-
 
 
 
