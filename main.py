@@ -250,7 +250,6 @@ def update_config_date(asset_list, asset_dic):
 
     # TODO
 
-
 def init():
     '''
 

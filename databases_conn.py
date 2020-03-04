@@ -2,20 +2,19 @@ import mysql.connector
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
 
+import json
+import time
 import pandas as pd
 import numpy as np
+
 from ThinkX import thinkdsp
 import fft_eng
 
-class DBmysql:
-    # define database configuratin parameters
-    db_info = {}
-    db_info.update({'host': "192.168.1.118"})  #localhost
-    db_info.update({'user': "root"})
-    db_info.update({'password': "sbrQp10"})
-    db_info.update({'database': "data"})
 
-    def __init__(self, config=db_info):
+# ******************* MySQL Database class *****************************************************
+class DBmysql:
+
+    def __init__(self, config):
         self._conn = mysql.connector.connect(**config)
         self._cursor = self._conn.cursor()
 
@@ -104,6 +103,41 @@ class DBmysql:
         # return the asset dictionary
         return asset_dic
 
+    def get_vib_tags_id_dic(self):
+        '''
+
+        :return:a tags dictionary like this: {'tag': internalTagID}
+        '''
+        # define empty dictionary for tags
+        tag_id_dic = {}
+
+        # get the asset list
+        assets = self.get_vib_asset_list()
+
+        for asset in assets:
+            # define sql query to get all the groups and tags from vibration assets
+            sql = 'SELECT groupName, tagName, internalTagID ' \
+                   'FROM config.rt_tags_dic ' \
+                   'INNER JOIN config.rt_groups ON rt_tags_dic.groupID = rt_groups.groupID ' \
+                   'INNER JOIN config.rt_process ON rt_groups.processID = rt_process.processID ' \
+                   'WHERE rt_process.processName = "{}"'.format(asset)
+
+            # query the database
+            groups_tags = self.query(sql)
+
+            # define empty list
+            group___tag = []
+
+            # create the asset dictionary
+            for group, tag, internalTagID in groups_tags:
+                group___tag.append((group + '___' + tag, internalTagID))
+                tag_id_dic.update({asset: group___tag})
+
+        # return the tags dictionary
+        return tag_id_dic
+
+
+# ******************* Influx Database class *****************************************************
 class DBinflux:
     '''# define database configuration parameters
     db_info = {}
@@ -130,6 +164,140 @@ class DBinflux:
 
     def write_points(self, pdf, meas):
         self.client.write_points(dataframe=pdf, measurement=meas, time_precision='ms')
+
+
+# ******************* getinrtmatrix Function *****************************************************
+def getinrtmatrix(rt_redis_data, intagsstr):
+    # Local Initialization
+    intagsstr_redis_list = []
+    input_tags_values = []
+    input_tags_timestamp = []
+    redis_retry = True
+    redis_retry_counter = 0
+
+    # Convert Input Tags strings to List
+    internaltagidlist = intagsstr.split(",")
+
+    # Get Tags Amount
+    n = len(internaltagidlist)
+
+    # Create a Tags IDs List to be use with Redis
+    for i in range(n):
+        intagsstr_redis_list.append("rt_data:" + str(internaltagidlist[i]))
+
+    while (redis_retry is True) and (redis_retry_counter <= 10):
+        # Get List of Values from Redis
+        redis_info_list = rt_redis_data.get_value_list(intagsstr_redis_list)
+
+        # Create the Input Tags List with Values and Timestamp
+        for k in range(n):
+            if redis_info_list[k] is not None:
+                redis_info_temp = json.loads(redis_info_list[k])
+                input_tags_values.append(float(redis_info_temp["value"]))
+                input_tags_timestamp.append(redis_info_temp["timestamp"])
+                redis_retry = False
+            else:
+                # Disconnect from Redis DB
+                rt_redis_data.close_db()
+
+                # Sleep to create Scan Cycle = Configuration Loop Frequency
+                time.sleep(0.1)
+
+                # Connect to Redis DB
+                rt_redis_data.open_db()
+                redis_retry = True
+                redis_retry_counter += 1
+                print("{Warning} Real Time DB is empty")
+
+    # Get the Latest Timestamp Value for the Tags
+    if not input_tags_timestamp:
+        input_timestamp = None
+        input_tags_values = None
+    else:
+        input_timestamp = max(input_tags_timestamp)
+        input_tags_values = np.asarray(input_tags_values)
+
+    return input_timestamp, input_tags_values
+
+
+# ******************* redis_get_value Function *****************************************************
+def redis_get_value(rt_redis_data, redis_key):
+    """
+
+    :param redis_key:
+    :return:
+    """
+
+    # Initialization
+    redis_retry = True
+    redis_value = None
+    redis_retry_counter = 0
+    max_retry = 30
+
+    while (redis_retry is True) and (redis_retry_counter <= max_retry):
+        # Get Value from Redis
+        redis_value = rt_redis_data.get_value(redis_key)
+
+        if redis_value is not None:
+            redis_retry = False
+        else:
+            # Disconnect from Redis DB
+            rt_redis_data.close_db()
+
+            # Sleep to create Scan Cycle = Configuration Loop Frequency
+            time.sleep(0.1)
+
+            # Connect to Redis DB
+            rt_redis_data.open_db()
+            redis_retry = True
+            redis_retry_counter += 1
+
+    return redis_value
+    pass
+
+
+# ******************* redis_set_value Function *****************************************************
+def redis_set_value(rt_redis_data, redis_key, redis_value):
+    """
+
+    :param redis_key:
+    :param redis_value:
+    :return:
+    """
+
+    # Initialization
+    redis_retry = True
+    redis_retry_counter = 0
+    max_retry = 30
+
+    while (redis_retry is True) and (redis_retry_counter <= max_retry):
+        # noinspection PyBroadException
+        try:
+            # Set Value to Redis
+            rt_redis_data.set_value(redis_key, redis_value)
+            redis_retry = False
+        except Exception:
+            # Disconnect from Redis DB
+            rt_redis_data.close_db()
+
+            # Sleep to create Scan Cycle = Configuration Loop Frequency
+            time.sleep(0.1)
+
+            # Connect to Redis DB
+            rt_redis_data.open_db()
+            redis_retry = True
+            redis_retry_counter += 1
+
+    pass
+
+
+
+
+
+
+
+
+
 
 
 def test_mysql():
@@ -232,26 +400,39 @@ def write_influx_test_data():
     # create an influxdb client
     client = InfluxDBClient(host='192.168.21.134', port=8086, database='VIB_DB')
 
-    # Generating point for WF___X_EVT_CHG_ID
-    points = [{
-        "measurement": 'VIB_SEN1',
-        "fields": {
-            "WF___X_EVT_CHG_ID": '2020-03-03 01:01:00.000000+00:00'
-        }
-    }]
-    client.write_points(points, time_precision='ms')
+    # # Generating point for WF___X_EVT_CHG_ID
+    # points = [{
+    #     "measurement": 'VIB_SEN1',
+    #     "fields": {
+    #         "WF___X_EVT_CHG_ID": '2020-03-03 01:02:00.000000+00:00'
+    #     }
+    # }]
+    # client.write_points(points, time_precision='ms')
 
+    count = 0
     # Generating points for WF___X_TDW and WF___X_EVTID
     for k in wave.ys:
-        points = [{
-            "measurement": 'VIB_SEN1',
-            "fields": {
-                "WF___X_TDW": k,
-                "WF___X_EVTID": '2020-03-03 01:01:00.000000+00:00'
-            }
-        }]
-        client.write_points(points, time_precision='ms')
+        if count == 0:
+            points = [{
+                "measurement": 'VIB_SEN1',
+                "fields": {
+                    "WF___X_TDW": k,
+                    "WF___X_EVTID": '2020-03-03 01:04:00.000000+00:00',
+                    "WF___X_EVT_CHG_ID": '2020-03-03 01:04:00.000000+00:00'
+                }
+            }]
+            client.write_points(points, time_precision='ms')
+        else:
+            points = [{
+                "measurement": 'VIB_SEN1',
+                "fields": {
+                    "WF___X_TDW": k,
+                    "WF___X_EVTID": '2020-03-03 01:04:00.000000+00:00'
 
+                }
+            }]
+            client.write_points(points, time_precision='ms')
+        count +=1
 
 def read_influx_test_data():
     # Initialization
@@ -275,7 +456,7 @@ def read_influx_test_data():
     Z_TDW = 'WF___Z_TDW'
     Z_TDW_RED = 'WF___Z_TDW_RED'
 
-    X_EVTID1 = '2020-03-03 01:01:00.000000+00:00'
+    X_EVTID1 = '2020-03-03 01:02:00.000000+00:00'
 
     # define database configuratin parameters
     db_info = {}
@@ -289,7 +470,8 @@ def read_influx_test_data():
     # sql = "select * from " + ASSET_NAME
     # sql = "select " + X_EVTID + " from " + ASSET_NAME
     # sql = "select {}, {}, {} from {} order by time".format(X_TDW, X_EVTID, X_EVT_CHG_ID, ASSET_NAME)
-    sql = "select {}, {}, {} from {} where WF___X_EVTID=$X_EVTID1;".format(X_TDW, X_EVTID, X_EVT_CHG_ID, ASSET_NAME)
+    # sql = "select {}, {}, {} from {} where WF___X_EVTID=$X_EVTID1;".format(X_TDW, X_EVTID, X_EVT_CHG_ID, ASSET_NAME)
+    sql = "select {}, {}, {} from {} where WF___X_FFT<>0;".format(X_TDW, X_EVTID, X_EVT_CHG_ID, ASSET_NAME)
     # sql = "select {} from {} where {}=$X_EVTID1;".format(X_EVT_CHG_ID, ASSET_NAME, X_EVTID)
     bind_params = {'X_EVTID1': X_EVTID1}
 
