@@ -16,11 +16,6 @@ from redisdb import RedisDB
 from databases_conn import Config
 
 
-'''==================DATABASE CONFIGURATION DATA=============================='''
-influx_db_info = Config.influx
-mysql_db_info = Config.mysql
-
-
 def update_config_date():
     ''' read config data from MySQL
 
@@ -31,7 +26,7 @@ def update_config_date():
     print('>>>>>>>>>>>> updating config data')
 
 
-    db1 = databases_conn.DBmysql(mysql_db_info)
+    db1 = databases_conn.DBmysql(Config.mysql)
 
     asset_list, asset_dic, tags_ids_dic = db1.get_vib_tags_id_dic()
 
@@ -48,16 +43,8 @@ def process_trigger(asset, axis):
     # Initialize trigger in false
     p_trigger = False
 
-    # define database configuration parameters
-    db_info = {}
-    db_info.update({'host': "localhost"})
-    db_info.update({'port': 8086})
-    # db_info.update({'username': "root"})
-    # db_info.update({'password': "sbrQp10"})
-    db_info.update({'database': "VIB_DB"})
-
     # create an instance of DBinflux
-    db1 = databases_conn.DBinflux(config=db_info)
+    db1 = databases_conn.DBinflux(config=Config.influx)
 
     # Build the field name from the axis (X or Z)
     field = "{}_EVT_CHG_ID}".format(axis)
@@ -73,7 +60,7 @@ def process_trigger(asset, axis):
     event_change_id__list = datasets_dic.values
 
     if len(event_change_id__list) == 2:
-        p_trigger = true
+        p_trigger = True
         even_change_id = event_change_id__list[0]
 
     return p_trigger, even_change_id
@@ -91,7 +78,7 @@ def data_process(asset_name, event_id, axis='X'):
     evt_chg_id = '{}_EVT_CHG_ID'.format(axis)
 
     # create an instance of DBinflux
-    db1 = databases_conn.DBinflux(config=influx_db_info)
+    db1 = databases_conn.DBinflux(config=Config.influx)
 
     # sql = "select * from " + asset_name
     sql = "select {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, asset_name, evt_chg_id, event_id)
@@ -150,10 +137,10 @@ def main():
 
     # Sensor tags ids: example: tags_ids_str = "460,461,462"
     tags_ids_str = ''
-    for k in tags_ids_dic:
-        for group___tag, internalTagID in k:
-            tags_ids_str += str(internalTagID) + ','
-    tags_ids_str = tags_ids_str[:-1]
+    # for k in tags_ids_dic:
+    #     for group___tag, internalTagID in k:
+    #         tags_ids_str += str(internalTagID) + ','
+    # tags_ids_str = tags_ids_str[:-1]
 
 
     while True:
