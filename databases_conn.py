@@ -10,12 +10,12 @@ import numpy as np
 from ThinkX import thinkdsp
 import fft_eng
 
+''' databases configuration data
 # influxDB configuration
 # influx_db_info = {}
 # influx_db_info.update({'host': "192.168.21.134"})  # localhost, 192.168.1.118
 # influx_db_info.update({'port': 8086})
 # influx_db_info.update({'database': DATABASE_NAME})
-
 
 # define database configuration parameters
 # db_info = {}
@@ -24,7 +24,7 @@ import fft_eng
 # db_info.update({'username': "root"})
 # db_info.update({'password': "sbrQp10"})
 # db_info.update({'database': "VIB_DB"})
-
+'''
 
 class Config:
 

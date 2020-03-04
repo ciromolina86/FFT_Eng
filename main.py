@@ -16,20 +16,23 @@ from redisdb import RedisDB
 from databases_conn import Config
 
 
-def update_config_date():
-    ''' read config data from MySQL
+def update_config_data():
+    '''read config data from MySQL
 
-    :param asset_list:
-    :param asset_dic:
-    :return:
+    :return: asset_list, asset_dic, tags_ids_dic
     '''
+
     print('>>>>>>>>>>>> updating config data')
 
-
+    # create a connection to MySQL database
     db1 = databases_conn.DBmysql(Config.mysql)
 
-    asset_list, asset_dic, tags_ids_dic = db1.get_vib_tags_id_dic()
+    # get config data from MySQL database
+    asset_list = db1.get_vib_asset_list()
+    asset_dic = db1.get_vib_asset_dic()
+    tags_ids_dic = db1.get_vib_tags_id_dic()
 
+    # return config data
     return asset_list, asset_dic, tags_ids_dic
 
 
