@@ -12,8 +12,165 @@ import fft_eng
 import time
 from influxdb import InfluxDBClient
 import influxdb_conn
+import databases_conn
+from redisdb import RedisDB
 
 '''================================================'''
+
+def update_config_date():
+    ''' read config data from MySQL
+
+    :param asset_list:
+    :param asset_dic:
+    :return:
+    '''
+    print('updating config data')
+
+    # define database configuration parameters
+    db_info = {}
+    db_info.update({'host': "192.168.21.134"})
+    db_info.update({'port': 8086})
+    db_info.update({'username': "root"})
+    db_info.update({'password': "sbrQp10"})
+    db_info.update({'database': "VIB_DB"})
+
+    db1 = databases_conn.DBmysql(db_info)
+
+    asset_list, asset_dic, tags_id_dic = db1.get_vib_tags_id_dic()
+
+    return asset_list, asset_dic, tags_ids_dic
+
+def update_rt_data(tags_ids_dic):
+    # Read ts and values
+    tags_timestamp, tags_current_value = databases_conn.getinrtmatrix(tags_ids_str)
+    print("TAGS TS: %s" % tags_timestamp)
+    print("TAGS VALUES: %s" % tags_current_value)
+
+    # Read Reload Status from Redis
+    reload_status = databases_conn.redis_get_value("rt_control:reload:fft")
+    print("APPLY CHANGES STATUS: %s" % reload_status)
+
+    if reload_status == "1":
+        # Reset Apply Changes flag
+        databases_conn.redis_set_value("rt_control:reload:fft", str(0))
+        print("RESETTING APPLY CHANGES FLAG")
+
+def init():
+    '''
+
+    :return:
+    '''
+    print('initializing config data')
+
+    # TODO
+
+
+def main():
+    ''' execute main code '''
+    print('main ran!')
+
+    # creating global variables
+    asset_dic = {}
+    asset_list = []
+    tags_ids_dic = {}
+
+    asset_list, asset_dic, tags_ids_dic = update_config_date()
+
+    #=========================
+    # Redis DB Initialization
+    # =========================
+    rt_redis_data = RedisDB()
+
+    # Connect to Redis DB
+    rt_redis_data.open_db()
+
+    # Sensor tags ids: example: tags_ids_str = "460,461,462"
+    fs_tags_ids_str = ''
+    for k in tags_ids_dic:
+        for group___tag, internalTagID in k:
+            fs_tags_ids_str += str(internalTagID) + ','
+    fs_tags_ids_str = fs_tags_ids_str[:-1]
+
+
+    while True:
+        ################################################################################################
+        # READ Tag values
+        ################################################################################################
+        # Read ts and values (sample frequency)
+        fs_tags_timestamp, fs_tags_current_value = databases_conn.getinrtmatrix(fs_tags_ids_str)
+        print("###########################################")
+        print("TAGS TS: %s" % fs_tags_timestamp)
+        print("TAGS VALUES: %s" % fs_tags_current_value)
+        print("###########################################")
+
+        ################################################################################################
+        # READ Apply changes status
+        ################################################################################################
+        # Read Reload Status from Redis
+        reload_status = databases_conn.redis_get_value("rt_control:reload:fft")
+        print("###########################################")
+        print("APPLY CHANGES STATUS: %s" % reload_status)
+        print("###########################################")
+
+        if reload_status == "1":
+
+            asset_list, asset_dic, fs_tags_ids_str = update_config_date()
+
+            # Sensor tags ids: example: tags_ids_str = "460,461,462"
+            fs_tags_ids_str = ''
+            for k in fs_tags_ids_str:
+                for group___tag, internalTagID in k:
+                    fs_tags_ids_str += str(internalTagID) + ','
+            fs_tags_ids_str = fs_tags_ids_str[:-1]
+
+            # Reset Apply Changes flag
+            databases_conn.redis_set_value("rt_control:reload:fft", str(0))
+
+            print("RESETTING APPLY CHANGES FLAG")
+
+
+
+
+
+
+
+
+
+
+
+
+
+        # wait for 1 second
+        time.sleep(1)
+
+'''================================================'''
+
+if __name__ == "__main__":
+    '''execute only if run as a main script'''
+
+
+
+    # initialization function
+    init()
+
+    # main
+
+
+
+'''================================================'''
+
+# testing
+# test1()
+
+# testing derivation and integration of waves
+# test2()
+
+# testing writing data to influxdb
+# test3()
+
+# testing kurtosis and kurtograms
+# test4()
+
 
 def test1():
     print('test1 ran!')
@@ -236,79 +393,3 @@ def test4():
 
     # computes the kurtosis of a wave
     print(fft_eng.get_kurtosis(a=wave1.ys))
-
-'''================================================'''
-
-def update_config_date(asset_list, asset_dic):
-    ''' read config data from MySQL
-
-    :param asset_list:
-    :param asset_dic:
-    :return:
-    '''
-    print('updating config data')
-
-    # TODO
-
-def init():
-    '''
-
-    :return:
-    '''
-    print('initializing config data')
-
-    # TODO
-    update_config_date(asset_list, asset_dic)
-
-def main():
-    '''
-
-    :return:
-    '''
-
-    print('main ran!')
-
-    while False:
-        # read trigger tag
-        # trigger = FFT_Eng.read_sde_tag(query='trigger')
-        trigger = int(input('enter trigger value: '))
-
-        # executes FFT functions if trigger is active
-        if trigger == 1:
-            continue
-
-        elif trigger == 9:
-            break
-
-        # wait for 1 second
-        time.sleep(1)
-
-'''================================================'''
-
-if __name__ == "__main__":
-    '''execute only if run as a main script'''
-
-    # creating global variables
-    asset_dic = {}
-    asset_list = []
-
-    # initialization function
-    init()
-
-    # main
-
-
-
-'''================================================'''
-
-# testing
-# test1()
-
-# testing derivation and integration of waves
-# test2()
-
-# testing writing data to influxdb
-# test3()
-
-# testing kurtosis and kurtograms
-# test4()

@@ -13,6 +13,13 @@ import fft_eng
 
 # ******************* MySQL Database class *****************************************************
 class DBmysql:
+    '''# define database configuration parameters
+    db_info = {}
+    db_info.update({'host': "localhost"})
+    db_info.update({'port': 8086})
+    db_info.update({'username': "root"})
+    db_info.update({'password': "sbrQp10"})
+    db_info.update({'database': "VIB_DB"})'''
 
     def __init__(self, config):
         self._conn = mysql.connector.connect(**config)
