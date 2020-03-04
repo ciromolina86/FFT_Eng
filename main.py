@@ -63,7 +63,7 @@ def process_trigger(asset, axis):
     db1 = databases_conn.DBinflux(config=db_info)
 
     # Build the field name from the axis (X or Z)
-    field = "event_check_{}".format(axis)
+    field = "{}_EVT_CHG_ID}".format(axis)
 
     # sql = SELECT fields FROM asset WHERE field <> "" ORDER BY id DESC LIMIT 2    (last two records)
     sql = "SELECT {} FROM {} WHERE {} <> "" ORDER BY id DESC LIMIT 2".format(field, asset, field)
@@ -76,9 +76,7 @@ def process_trigger(asset, axis):
     event_check_list = datasets_dic.values
 
     if len(event_check_list) == 2:
-        fft_not_present = check_fft(event_check_list[0])
-
-        p_trigger = fft_not_present
+        p_trigger = true
 
     return p_trigger
 
