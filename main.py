@@ -36,36 +36,51 @@ def update_config_data():
     return asset_list, asset_dic, tags_ids_dic
 
 
-def process_trigger(asset, axis):
+def check_for_new_tdw(asset, axis):
     """
 
     :param asset: (Sensor name)
     :param axis: (X or Z)
-    :return: true/false
+    :return: True/False
     """
-    # Initialize trigger in false
+    print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+    print('>>>>>>>>>>>> process_trigger')
+    print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+
+    # Initialize trigger in False
     p_trigger = False
+    even_change_id = 0
 
     # create an instance of DBinflux
     db1 = databases_conn.DBinflux(config=Config.influx)
 
     # Build the field name from the axis (X or Z)
-    field = "{}_EVT_CHG_ID}".format(axis)
+    select_field = "WF___{}_EVT_CHG_ID".format(axis)
+    where_field = "WF___{}_FFT".format(axis)
 
-    # sql = SELECT fields FROM asset WHERE field <> "" ORDER BY id DESC LIMIT 2    (last two records)
-    sql = "SELECT {} FROM {} WHERE {} <> "" ORDER BY id DESC LIMIT 2".format(field, asset, field)
-    binds = {}
+    # query to get the first two event ids of a time domain waveform without fft
+    sql = "SELECT {} FROM {} WHERE {} = -1.0 ORDER BY time LIMIT 2".format(select_field, asset, where_field)
 
-    # Execute query to get the last 2 event_check dic
+    # Execute query
     datasets_dic = db1.query(sql)
 
-    # Get a list of event_check
-    event_change_id__list = datasets_dic.values
+    # get the pandas dataframe out of the query result
+    datasets_pdf = datasets_dic[asset]
 
-    if len(event_change_id__list) == 2:
+    # Get a number of rows and columns of the query result
+    rows, cols = datasets_pdf.shape
+    # print('{}, {}'.format(rows, cols))
+
+    # if there is at least one whole waveform
+    # set trigger and copy the first whole waveform
+    if rows > 1:
         p_trigger = True
-        even_change_id = event_change_id__list[0]
+        even_change_id = datasets_pdf[select_field][0]
+    else:
+        p_trigger = False
+        even_change_id = ''
 
+    # return trigger and first event id
     return p_trigger, even_change_id
 
 
@@ -128,7 +143,7 @@ def main():
     asset_list = []
     tags_ids_dic = {}
 
-    asset_list, asset_dic, tags_ids_dic = update_config_date()
+    asset_list, asset_dic, tags_ids_dic = update_config_data()
 
     #=========================
     # Redis DB Initialization
@@ -169,7 +184,7 @@ def main():
 
         if reload_status == "1":
 
-            asset_list, asset_dic, tags_ids_dic = update_config_date()
+            asset_list, asset_dic, tags_ids_dic = update_config_data()
 
             axis_list = ["X", "Z"]
 
@@ -213,14 +228,13 @@ def main():
 if __name__ == "__main__":
     '''execute only if run as a main script'''
 
-
-
     # initialization function
-    init()
+    # init()
 
     # main
 
-
+    trigger, even_change_id = check_for_new_tdw('VIB_SEN1', 'X')
+    print(trigger, even_change_id)
 
 '''================================================'''
 
