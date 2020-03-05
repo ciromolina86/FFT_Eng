@@ -10,28 +10,20 @@ from scipy.signal import hilbert
 import json
 import fft_eng
 import time
-from influxdb import InfluxDBClient
+import datetime
 import influxdb_conn
 import databases_conn
 from redisdb import RedisDB
-
-'''================================================'''
-# influxDB configuration
-influx_db_info = {}
-influx_db_info.update({'host': "192.168.21.134"})  # localhost, 192.168.1.118
-influx_db_info.update({'port': 8086})
-influx_db_info.update({'database': DATABASE_NAME})
+from databases_conn import Config
 
 
+def update_config_data():
+    '''read config data from MySQL
 
-def update_config_date():
-    ''' read config data from MySQL
-
-    :param asset_list:
-    :param asset_dic:
-    :return:
+    :return: asset_list, asset_dic, tags_ids_dic
     '''
-    print('updating config data')
+
+    print('>>>>>>>>>>>> updating config data')
 
     # define database configuration parameters
     db_info = {}
@@ -41,47 +33,70 @@ def update_config_date():
     db_info.update({'password': "sbrQp10"})
     db_info.update({'database': "VIB_DB"})
 
-    db1 = databases_conn.DBmysql(db_info)
+    # create a connection to MySQL database
+    db1 = databases_conn.DBmysql(Config.mysql)
 
-    asset_list, asset_dic, tags_ids_dic = db1.get_vib_tags_id_dic()
+    # get config data from MySQL database
+    asset_list = db1.get_vib_asset_list()
+    asset_dic = db1.get_vib_asset_dic()
+    tags_ids_dic = db1.get_vib_tags_id_dic()
 
+    # return config data
     return asset_list, asset_dic, tags_ids_dic
 
 
-def process_trigger(asset, axis):
+def check_for_new_tdw(asset, axis):
     """
+    Get last two event_changes
+    Verify to event_changes are coming
+    And check that the first one doesnt have FFT
 
     :param asset: (Sensor name)
     :param axis: (X or Z)
-    :return: true/false
+    :return: True/False
     """
-    # Initialize trigger in false
-    p_trigger = false
+    print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+    print('>>>>>>>>>>>> process_trigger')
+    print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+
+    # Initialize trigger in False
+    p_trigger = False
+    even_change_id = 0
 
     # create an instance of DBinflux
-    db1 = databases_conn.DBinflux(config=influx_db_info)
+    db1 = databases_conn.DBinflux(config=Config.influx)
 
     # Build the field name from the axis (X or Z)
-    field = "{}_EVT_CHG_ID}".format(axis)
+    select_field = "WF___{}_EVT_CHG_ID".format(axis)
+    where_field = "WF___{}_FFT".format(axis)
 
-    # sql = SELECT fields FROM asset WHERE field <> "" ORDER BY id DESC LIMIT 2    (last two records)
-    sql = "SELECT {} FROM {} WHERE {} <> "" ORDER BY id DESC LIMIT 2".format(field, asset, field)
-    binds = {}
+    # query to get the first two event ids of a time domain waveform without fft
+    sql = "SELECT {} FROM {} WHERE {} = -1.0 ORDER BY time LIMIT 2".format(select_field, asset, where_field)
 
-    # Execute query to get the last 2 event_check dic
+    # Execute query
     datasets_dic = db1.query(sql)
 
-    # Get a list of event_check
-    event_change_id__list = datasets_dic.values
+    # get the pandas dataframe out of the query result
+    datasets_pdf = datasets_dic[asset]
 
-    if len(event_change_id__list) == 2:
-        p_trigger = true
-        even_change_id = event_change_id__list[0]
+    # Get a number of rows and columns of the query result
+    rows, cols = datasets_pdf.shape
+    # print('{}, {}'.format(rows, cols))
 
+    # if there is at least one whole waveform
+    # set trigger and copy the first whole waveform
+    if rows > 1:
+        p_trigger = True
+        even_change_id = datasets_pdf[select_field][0]
+    else:
+        p_trigger = False
+        even_change_id = ''
+
+    # return trigger and first event id
     return p_trigger, even_change_id
 
 
-def axis_data_process(asset_name, event_id, axis='X'):
+def data_process(asset_name, event_id, axis='X'):
     # Initialization
 
     _timestamp = '_timestamp'
@@ -93,7 +108,7 @@ def axis_data_process(asset_name, event_id, axis='X'):
     evt_chg_id = '{}_EVT_CHG_ID'.format(axis)
 
     # create an instance of DBinflux
-    db1 = databases_conn.DBinflux(config=influx_db_info)
+    db1 = databases_conn.DBinflux(config=Config.influx)
 
     # sql = "select * from " + asset_name
     sql = "select {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, asset_name, evt_chg_id, event_id)
@@ -139,8 +154,14 @@ def main():
     asset_dic = {}
     asset_list = []
     tags_ids_dic = {}
+    axis_list = ["X", "Z"]
 
-    asset_list, asset_dic, tags_ids_dic = update_config_date()
+    # update config data the first time
+    asset_list, asset_dic, tags_ids_dic = update_config_data()
+    print('asset_list >> {}'.format(asset_list))
+    print('asset_dic >> {}'.format(asset_dic))
+    print('tags_ids_dic >> {}'.format(tags_ids_dic))
+
 
     #=========================
     # Redis DB Initialization
@@ -150,91 +171,55 @@ def main():
     # Connect to Redis DB
     rt_redis_data.open_db()
 
-    # Sensor tags ids: example: tags_ids_str = "460,461,462"
-    tags_ids_str = ''
-    for k in tags_ids_dic:
-        for group___tag, internalTagID in k:
-            tags_ids_str += str(internalTagID) + ','
-    tags_ids_str = tags_ids_str[:-1]
-
-
     while True:
+        print('>>>>>>>>>>>> while true cycle')
+
         # update real time data
-        ################################################################################################
-        # READ Tag values
-        ################################################################################################
-        # Read ts and values (sample frequency)
-        tags_timestamp, tags_current_value = databases_conn.getinrtmatrix(tags_ids_str)
-        print("###########################################")
-        print("TAGS TS: %s" % tags_timestamp)
-        print("TAGS VALUES: %s" % tags_current_value)
-        print("###########################################")
+        # Read Apply changes status (Reload Status) from Redis
+        reload_status = ''  #databases_conn.redis_get_value("rt_control:reload:fft")
+        # print("APPLY CHANGES STATUS: %s" % reload_status)
 
-        ################################################################################################
-        # READ Apply changes status
-        ################################################################################################
-        # Read Reload Status from Redis
-        reload_status = databases_conn.redis_get_value("rt_control:reload:fft")
-        print("###########################################")
-        print("APPLY CHANGES STATUS: %s" % reload_status)
-        print("###########################################")
-
+        # if "Apply Changes" is set
         if reload_status == "1":
-
-            asset_list, asset_dic, tags_ids_dic = update_config_date()
-
-
-
-            # Sensor tags ids: example: tags_ids_str = "460,461,462"
-            fs_tags_ids_str = ''
-            for k in tags_ids_dic:
-                for group___tag, internalTagID in k:
-                    fs_tags_ids_str += str(internalTagID) + ','
-            fs_tags_ids_str = fs_tags_ids_str[:-1]
+            # update config data once again
+            asset_list, asset_dic, tags_ids_dic = update_config_data()
 
             # Reset Apply Changes flag
             databases_conn.redis_set_value("rt_control:reload:fft", str(0))
-
             print("RESETTING APPLY CHANGES FLAG")
 
+        # scan all assets for the current database
         for asset in asset_list:
 
-            # get the axis list of the asset (future)
-            axis_list = ["X", "Z"]
-
+            # scan all axises for the current asset
             for axis in axis_list:
-                # Get last two event_changes, Verify to event_changes are coming
-                # And check that the first one doesnt have FFT
-                p_trigger, even_change_id = process_trigger(asset=asset, axis=axis)
 
-                if p_trigger:
-                    # Run axis data process function to get the FFT of the TDW for the event change ID
-                    axis_data_process(asset_name=asset, event_id=even_change_id, axis=axis)
+                # check for new time domain waveforms without processing
+                trigger, even_change_id = check_for_new_tdw(asset=asset, axis=axis)
+
+                # if a new time domain waveform is ready to process
+                if trigger:
+
+                    # Run data process function to get the FFT of the TDW for the event change ID
+                    # data_process(asset_name=asset, event_id=even_change_id, axis=axis)
+                    print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
+                    # break
+
+        print('time: {}'.format(time.time()))
+        # wait for 30 second
+        time.sleep(30)
 
 
-
-
-
-
-
-
-
-
-        # wait for 1 second
-        time.sleep(1)
 
 '''================================================'''
 
 if __name__ == "__main__":
     '''execute only if run as a main script'''
 
-
-
     # initialization function
-    init()
+    # init()
 
-    # main
-
+    main()
 
 
 '''================================================'''

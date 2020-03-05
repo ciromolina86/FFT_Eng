@@ -10,20 +10,41 @@ import numpy as np
 from ThinkX import thinkdsp
 import fft_eng
 
+''' databases configuration data
+# influxDB configuration
+# influx_db_info = {}
+# influx_db_info.update({'host': "192.168.21.134"})  # localhost, 192.168.1.118
+# influx_db_info.update({'port': 8086})
+# influx_db_info.update({'database': DATABASE_NAME})
+
+# define database configuration parameters
+# db_info = {}
+# db_info.update({'host': "192.168.21.134"})
+# db_info.update({'port': 8086})
+# db_info.update({'username': "root"})
+# db_info.update({'password': "sbrQp10"})
+# db_info.update({'database': "VIB_DB"})
+'''
+
+class Config:
+    # define database configuration parameters
+    mysql = {}
+    mysql.update({'host': "192.168.21.134"})
+    mysql.update({'port': 3306})
+    mysql.update({'user': "root"})
+    mysql.update({'password': "sbrQp10"})
+    mysql.update({'database': "data"})
+
+    influx = {'host': "192.168.21.134", 'port': 8086, 'username': "", 'password': "", 'database': "VIB_DB"}
+
 
 # ******************* MySQL Database class *****************************************************
 class DBmysql:
-    '''# define database configuration parameters
-    db_info = {}
-    db_info.update({'host': "localhost"})
-    db_info.update({'port': 8086})
-    db_info.update({'username': "root"})
-    db_info.update({'password': "sbrQp10"})
-    db_info.update({'database': "VIB_DB"})'''
 
-    def __init__(self, config):
-        self._conn = mysql.connector.connect(**config)
+    def __init__(self, info):
+        self._conn = mysql.connector.connect(**info)
         self._cursor = self._conn.cursor()
+        # print('MySQL object was created')
 
     @property
     def connection(self):
@@ -56,8 +77,10 @@ class DBmysql:
     def get_vib_asset_list(self):
         '''
 
-        :return: an asset list like this: ['VIB_SENSOR1', 'VIB_SENSOR2', 'VIB_SENSOR3']
+        :return: an asset list like this: ['asset1', 'asset2', ...]
         '''
+        # print('get_vib_asset_list was executed')
+
         # define empty list for assets
         asset_list = []
 
@@ -80,8 +103,10 @@ class DBmysql:
     def get_vib_asset_dic(self):
         '''
 
-        :return:an asset dictionary like this: {'VIB_SENSOR1': ['CFG___AREA', 'WF___TDW_X', 'WF___TDW_Z', 'WF___FFT_X', 'WF___FFT_Z', 'WF___EVENTID_X', 'WF___EVENTID_Z']}
+        :return:an asset dictionary like this: {'asset1': ['group1___tag1', 'group2___tag1', ...]}
         '''
+        # print('get_vib_asset_dic was executed')
+
         # define empty list for assets
         asset_dic = {}
 
@@ -113,8 +138,10 @@ class DBmysql:
     def get_vib_tags_id_dic(self):
         '''
 
-        :return:a tags dictionary like this: {'tag': internalTagID}
+        :return:a tag:id dictionary like this: {'group1___tag1': internalTagID1}
         '''
+        # print('get_vib_tags_id_dic was executed')
+
         # define empty dictionary for tags
         tag_id_dic = {}
 
@@ -146,13 +173,6 @@ class DBmysql:
 
 # ******************* Influx Database class *****************************************************
 class DBinflux:
-    '''# define database configuration parameters
-    db_info = {}
-    db_info.update({'host': "localhost"})
-    db_info.update({'port': 8086})
-    # db_info.update({'username': "root"})
-    # db_info.update({'password': "sbrQp10"})
-    db_info.update({'database': "VIB_DB"})'''
 
     def __init__(self, config):
         self._client = DataFrameClient(**config)
@@ -174,7 +194,7 @@ class DBinflux:
 
 
 # ******************* getinrtmatrix Function *****************************************************
-def getinrtmatrix(rt_redis_data, intagsstr):
+def getinrtmatrix(rt_redis_data, in_tags_str):
     # Local Initialization
     intagsstr_redis_list = []
     input_tags_values = []
@@ -183,7 +203,7 @@ def getinrtmatrix(rt_redis_data, intagsstr):
     redis_retry_counter = 0
 
     # Convert Input Tags strings to List
-    internaltagidlist = intagsstr.split(",")
+    internaltagidlist = in_tags_str.split(",")
 
     # Get Tags Amount
     n = len(internaltagidlist)
@@ -308,9 +328,16 @@ def redis_set_value(rt_redis_data, redis_key, redis_value):
 
 
 def test_mysql():
+    # # define database configuration parameters
+    # db_info = {}
+    # db_info.update({'host': "192.168.21.134"})
+    # db_info.update({'port': 3306})
+    # db_info.update({'user': "root"})
+    # db_info.update({'password': "sbrQp10"})
+    # db_info.update({'database': "data"})
+
     # create an instance of DBmysql
-    # database information is hardcoded within object
-    db1 = DBmysql()
+    db1 = DBmysql(Config.mysql)
 
     # get the asset list
     asset_list = db1.get_vib_asset_list()
@@ -405,41 +432,74 @@ def write_influx_test_data():
     wave = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=100)
 
     # create an influxdb client
-    client = InfluxDBClient(host='192.168.21.134', port=8086, database='VIB_DB')
-
-    # # Generating point for WF___X_EVT_CHG_ID
-    # points = [{
-    #     "measurement": 'VIB_SEN1',
-    #     "fields": {
-    #         "WF___X_EVT_CHG_ID": '2020-03-03 01:02:00.000000+00:00'
-    #     }
-    # }]
-    # client.write_points(points, time_precision='ms')
+    client = InfluxDBClient(**Config.influx)  #host='192.168.21.134', port=8086, database='VIB_DB'
 
     count = 0
-    # Generating points for WF___X_TDW and WF___X_EVTID
+    # Generating test data
     for k in wave.ys:
         if count == 0:
             points = [{
                 "measurement": 'VIB_SEN1',
                 "fields": {
-                    "WF___X_TDW": k,
-                    "WF___X_EVTID": '2020-03-03 01:04:00.000000+00:00',
-                    "WF___X_EVT_CHG_ID": '2020-03-03 01:04:00.000000+00:00'
+                    "WF___Z_TDW": k,
+                    "WF___Z_EVTID": 'eventid33',
+                    "WF___Z_EVT_CHG_ID": 'eventid33',
+                    "WF___Z_FFT": -1.0
                 }
             }]
             client.write_points(points, time_precision='ms')
+            count += 1
+
         else:
             points = [{
                 "measurement": 'VIB_SEN1',
                 "fields": {
-                    "WF___X_TDW": k,
-                    "WF___X_EVTID": '2020-03-03 01:04:00.000000+00:00'
-
+                    "WF___Z_TDW": k,
+                    "WF___Z_EVTID": 'eventid33',
+                    "WF___Z_FFT": -1.0
                 }
             }]
             client.write_points(points, time_precision='ms')
-        count +=1
+
+    client.close()
+
+def write_influx_test_data2():
+    ''' this did not work '''
+
+    # create time domain waveform
+    wave_acc = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=100)
+
+    event_id_list = ['eventid1'] * 100
+    event_id_chg_list = ['eventid1']
+    none99_list = [''] * 99
+    event_id_chg_list.extend(none99_list)
+
+    # create wave spectrum
+    spec_acc = fft_eng.get_spectrum(wave_acc)
+    wave_vel = fft_eng.integrate(wave_acc)
+
+    # create dictionaries
+    wave_acc_dic = {'WF___X_TDW': wave_acc.ys}
+    wave_vel_dic = {'WF___X_TDW_VEL': wave_vel.ys}
+    spec_acc_dic = {'WF___X_FREQ': spec_acc.fs, 'WF___X_FFT': spec_acc.amps}
+    event_id_dic = {'WF___X_EVTID': event_id_list}
+    event_id_chg_dic = {'WF___X_EVT_CHG_ID': event_id_chg_list}
+
+    # convert dictionaries to pandas dataframe
+    wave_acc_df = pd.DataFrame(wave_acc_dic)  # , index=None
+    wave_vel_df = pd.DataFrame(wave_vel_dic)  # , index=None
+    spec_acc_df = pd.DataFrame(spec_acc_dic)  # , index=None
+    event_id_df = pd.DataFrame(event_id_dic)  # , index=None
+    event_id_chg_df = pd.DataFrame(event_id_chg_dic)  # , index=None
+
+    # concatenate both dataframes into one dataframe
+    pdf = pd.concat([event_id_chg_df, event_id_df, wave_acc_df], axis=1)  # ignore_index=True,
+    # print(pdf)
+    # print(pdf.shape)
+
+    client = DataFrameClient(Config.influx)
+    client.write_points(dataframe=pdf, measurement='VIB_SEN1')
+    client.close()
 
 def read_influx_test_data():
     # Initialization
@@ -465,14 +525,8 @@ def read_influx_test_data():
 
     X_EVTID1 = '2020-03-03 01:02:00.000000+00:00'
 
-    # define database configuratin parameters
-    db_info = {}
-    db_info.update({'host': "192.168.21.134"})  # localhost, 192.168.1.118
-    db_info.update({'port': 8086})
-    db_info.update({'database': DATABASE_NAME})
-
     # create an instance of DBinflux
-    db1 = DBinflux(config=db_info)
+    db1 = DBinflux(config=Config.influx)
 
     # sql = "select * from " + ASSET_NAME
     # sql = "select " + X_EVTID + " from " + ASSET_NAME
@@ -493,6 +547,10 @@ def read_influx_test_data():
     # print(pdf_wave.keys)
 
 
+
+
+
+
 if __name__ == "__main__":
     # execute only if run as a script
     print('==================================')
@@ -503,7 +561,8 @@ if __name__ == "__main__":
     # import test_influxdb_conn
     # test_influxdb_conn.writeTestValues2()
 
+    # test_mysql()
     # read data from influx
     # test_influx()
-    # write_influx_test_data()
-    read_influx_test_data()
+    write_influx_test_data()
+    # read_influx_test_data()
