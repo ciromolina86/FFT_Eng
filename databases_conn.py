@@ -27,16 +27,24 @@ import fft_eng
 '''
 
 class Config:
-    mysql = {'host': "192.168.21.134", 'port': 8086, 'username': "root", 'password': "sbrQp10", 'database': "VIB_DB"}
+    # define database configuration parameters
+    mysql = {}
+    mysql.update({'host': "192.168.21.134"})
+    mysql.update({'port': 3306})
+    mysql.update({'user': "root"})
+    mysql.update({'password': "sbrQp10"})
+    mysql.update({'database': "data"})
+
     influx = {'host': "192.168.21.134", 'port': 8086, 'username': "", 'password': "", 'database': "VIB_DB"}
 
 
 # ******************* MySQL Database class *****************************************************
 class DBmysql:
 
-    def __init__(self, config):
-        self._conn = mysql.connector.connect(**config)
+    def __init__(self, info):
+        self._conn = mysql.connector.connect(**info)
         self._cursor = self._conn.cursor()
+        # print('MySQL object was created')
 
     @property
     def connection(self):
@@ -71,6 +79,8 @@ class DBmysql:
 
         :return: an asset list like this: ['asset1', 'asset2', ...]
         '''
+        # print('get_vib_asset_list was executed')
+
         # define empty list for assets
         asset_list = []
 
@@ -95,6 +105,8 @@ class DBmysql:
 
         :return:an asset dictionary like this: {'asset1': ['group1___tag1', 'group2___tag1', ...]}
         '''
+        # print('get_vib_asset_dic was executed')
+
         # define empty list for assets
         asset_dic = {}
 
@@ -128,6 +140,8 @@ class DBmysql:
 
         :return:a tag:id dictionary like this: {'group1___tag1': internalTagID1}
         '''
+        # print('get_vib_tags_id_dic was executed')
+
         # define empty dictionary for tags
         tag_id_dic = {}
 
@@ -314,9 +328,16 @@ def redis_set_value(rt_redis_data, redis_key, redis_value):
 
 
 def test_mysql():
+    # # define database configuration parameters
+    # db_info = {}
+    # db_info.update({'host': "192.168.21.134"})
+    # db_info.update({'port': 3306})
+    # db_info.update({'user': "root"})
+    # db_info.update({'password': "sbrQp10"})
+    # db_info.update({'database': "data"})
+
     # create an instance of DBmysql
-    # database information is hardcoded within object
-    db1 = DBmysql()
+    db1 = DBmysql(Config.mysql)
 
     # get the asset list
     asset_list = db1.get_vib_asset_list()
@@ -420,10 +441,10 @@ def write_influx_test_data():
             points = [{
                 "measurement": 'VIB_SEN1',
                 "fields": {
-                    "WF___X_TDW": k,
-                    "WF___X_EVTID": 'eventid3',
-                    "WF___X_EVT_CHG_ID": 'eventid3',
-                    "WF___X_FFT": -1.0
+                    "WF___Z_TDW": k,
+                    "WF___Z_EVTID": 'eventid33',
+                    "WF___Z_EVT_CHG_ID": 'eventid33',
+                    "WF___Z_FFT": -1.0
                 }
             }]
             client.write_points(points, time_precision='ms')
@@ -433,9 +454,9 @@ def write_influx_test_data():
             points = [{
                 "measurement": 'VIB_SEN1',
                 "fields": {
-                    "WF___X_TDW": k,
-                    "WF___X_EVTID": 'eventid3',
-                    "WF___X_FFT": -1.0
+                    "WF___Z_TDW": k,
+                    "WF___Z_EVTID": 'eventid33',
+                    "WF___Z_FFT": -1.0
                 }
             }]
             client.write_points(points, time_precision='ms')
@@ -540,6 +561,7 @@ if __name__ == "__main__":
     # import test_influxdb_conn
     # test_influxdb_conn.writeTestValues2()
 
+    # test_mysql()
     # read data from influx
     # test_influx()
     write_influx_test_data()
