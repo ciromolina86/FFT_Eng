@@ -10,6 +10,7 @@ from scipy.signal import hilbert
 import json
 import fft_eng
 import time
+import datetime
 import influxdb_conn
 import databases_conn
 from redisdb import RedisDB
@@ -23,6 +24,14 @@ def update_config_data():
     '''
 
     print('>>>>>>>>>>>> updating config data')
+
+    # define database configuration parameters
+    db_info = {}
+    db_info.update({'host': "192.168.21.134"})
+    db_info.update({'port': 8086})
+    db_info.update({'username': "root"})
+    db_info.update({'password': "sbrQp10"})
+    db_info.update({'database': "VIB_DB"})
 
     # create a connection to MySQL database
     db1 = databases_conn.DBmysql(Config.mysql)
@@ -38,6 +47,9 @@ def update_config_data():
 
 def check_for_new_tdw(asset, axis):
     """
+    Get last two event_changes
+    Verify to event_changes are coming
+    And check that the first one doesnt have FFT
 
     :param asset: (Sensor name)
     :param axis: (X or Z)
@@ -142,8 +154,14 @@ def main():
     asset_dic = {}
     asset_list = []
     tags_ids_dic = {}
+    axis_list = ["X", "Z"]
 
+    # update config data the first time
     asset_list, asset_dic, tags_ids_dic = update_config_data()
+    print('asset_list >> {}'.format(asset_list))
+    print('asset_dic >> {}'.format(asset_dic))
+    print('tags_ids_dic >> {}'.format(tags_ids_dic))
+
 
     #=========================
     # Redis DB Initialization
@@ -153,75 +171,45 @@ def main():
     # Connect to Redis DB
     rt_redis_data.open_db()
 
-    # Sensor tags ids: example: tags_ids_str = "460,461,462"
-    tags_ids_str = ''
-    # for k in tags_ids_dic:
-    #     for group___tag, internalTagID in k:
-    #         tags_ids_str += str(internalTagID) + ','
-    # tags_ids_str = tags_ids_str[:-1]
-
-
     while True:
+        print('>>>>>>>>>>>> while true cycle')
+
         # update real time data
-        ################################################################################################
-        # READ Tag values
-        ################################################################################################
-        # Read ts and values (sample frequency)
-        tags_timestamp, tags_current_value = databases_conn.getinrtmatrix(tags_ids_str)
-        print("###########################################")
-        print("TAGS TS: %s" % tags_timestamp)
-        print("TAGS VALUES: %s" % tags_current_value)
-        print("###########################################")
+        # Read Apply changes status (Reload Status) from Redis
+        reload_status = ''  #databases_conn.redis_get_value("rt_control:reload:fft")
+        # print("APPLY CHANGES STATUS: %s" % reload_status)
 
-        ################################################################################################
-        # READ Apply changes status
-        ################################################################################################
-        # Read Reload Status from Redis
-        reload_status = databases_conn.redis_get_value("rt_control:reload:fft")
-        print("###########################################")
-        print("APPLY CHANGES STATUS: %s" % reload_status)
-        print("###########################################")
-
+        # if "Apply Changes" is set
         if reload_status == "1":
-
+            # update config data once again
             asset_list, asset_dic, tags_ids_dic = update_config_data()
-
-            axis_list = ["X", "Z"]
-
-            # Sensor tags ids: example: tags_ids_str = "460,461,462"
-            fs_tags_ids_str = ''
-            for k in tags_ids_dic:
-                for group___tag, internalTagID in k:
-                    fs_tags_ids_str += str(internalTagID) + ','
-            fs_tags_ids_str = fs_tags_ids_str[:-1]
 
             # Reset Apply Changes flag
             databases_conn.redis_set_value("rt_control:reload:fft", str(0))
-
             print("RESETTING APPLY CHANGES FLAG")
 
+        # scan all assets for the current database
         for asset in asset_list:
 
+            # scan all axises for the current asset
             for axis in axis_list:
-                # Get last two event_changes, Verify to event_changes are coming
-                # And check that the first one doesnt have FFT
-                p_trigger, even_change_id = process_trigger(asset=asset, axis=axis)
 
-                if p_trigger:
+                # check for new time domain waveforms without processing
+                trigger, even_change_id = check_for_new_tdw(asset=asset, axis=axis)
+
+                # if a new time domain waveform is ready to process
+                if trigger:
+
                     # Run data process function to get the FFT of the TDW for the event change ID
-                    data_process(asset_name=asset, event_id=even_change_id, axis=axis)
+                    # data_process(asset_name=asset, event_id=even_change_id, axis=axis)
+                    print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
+                    # break
+
+        print('time: {}'.format(time.time()))
+        # wait for 30 second
+        time.sleep(30)
 
 
-
-
-
-
-
-
-
-
-        # wait for 1 second
-        time.sleep(1)
 
 '''================================================'''
 
@@ -231,10 +219,8 @@ if __name__ == "__main__":
     # initialization function
     # init()
 
-    # main
+    main()
 
-    trigger, even_change_id = check_for_new_tdw('VIB_SEN1', 'X')
-    print(trigger, even_change_id)
 
 '''================================================'''
 
