@@ -13,7 +13,7 @@ import time
 import datetime
 import influxdb_conn
 import databases_conn
-from redisdb import RedisDB
+# from redisdb import RedisDB
 from databases_conn import Config
 
 
@@ -62,26 +62,28 @@ def check_for_new_tdw(asset, axis):
     # Initialize trigger in False
     p_trigger = False
     even_change_id = 0
-
+    # print("influx config")
+    # print(Config.influx)
     # create an instance of DBinflux
     db1 = databases_conn.DBinflux(config=Config.influx)
 
     # Build the field name from the axis (X or Z)
     select_field = "WF___{}_EVT_CHG_ID".format(axis)
     where_field = "WF___{}_FFT".format(axis)
+    wf_event_id = "WF___{}_EVTID".format(axis) 
 
     # query to get the first two event ids of a time domain waveform without fft
-    sql = "SELECT {} FROM {} WHERE {} = -1.0 ORDER BY time LIMIT 2".format(select_field, asset, where_field)
-
+    sql = "SELECT {} FROM {} WHERE {} = -1.0 AND {} <> '' ORDER BY time".format(select_field, asset, where_field, wf_event_id)
+    # print(sql)
     # Execute query
     datasets_dic = db1.query(sql)
-
+    print(datasets_dic)
     # get the pandas dataframe out of the query result
     datasets_pdf = datasets_dic[asset]
 
     # Get a number of rows and columns of the query result
     rows, cols = datasets_pdf.shape
-    # print('{}, {}'.format(rows, cols))
+    print('{}, {}'.format(rows, cols))
 
     # if there is at least one whole waveform
     # set trigger and copy the first whole waveform
@@ -91,6 +93,7 @@ def check_for_new_tdw(asset, axis):
     else:
         p_trigger = False
         even_change_id = ''
+        print('>>>>>> No changes<<<<<<<<<')
 
     # return trigger and first event id
     return p_trigger, even_change_id
@@ -99,19 +102,20 @@ def check_for_new_tdw(asset, axis):
 def data_process(asset_name, event_id, axis='X'):
     # Initialization
 
-    _timestamp = '_timestamp'
+    _timestamp = 'time'
     fft = 'WF___{}_FFT'.format(axis)
     fft_red = 'WF___{}_FFT_RED'.format(axis)
     freq = 'WF___{}_FREQ'.format(axis)
     freq_red = 'WF___{}_FREQ_RED'.format(axis)
     tdw = 'WF___{}_TDW'.format(axis)
-    evt_chg_id = '{}_EVT_CHG_ID'.format(axis)
+    wf_evt_id = 'WF___{}_EVTID'.format(axis)
+    evt_id = "'{}'".format(event_id)
 
     # create an instance of DBinflux
     db1 = databases_conn.DBinflux(config=Config.influx)
 
     # sql = "select * from " + asset_name
-    sql = "select {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, asset_name, evt_chg_id, event_id)
+    sql = "select {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, asset_name, wf_evt_id, evt_id)
     binds = {}
 
     # Execute query
@@ -121,7 +125,7 @@ def data_process(asset_name, event_id, axis='X'):
     pdf_wave = datasets_dic[asset_name]
 
     # create  wave and spectrum
-    wave = thinkdsp.Wave(ys=pdf_wave[tdw_field], ts=np.linspace(0, 1, 100), framerate=100)
+    wave = thinkdsp.Wave(ys=pdf_wave[tdw], ts=np.linspace(0, 1, 100), framerate=100)
     spectrum = fft_eng.get_spectrum(wave=wave, window='hanning')
     spectrum_red = spectrum.copy()
 
@@ -133,7 +137,18 @@ def data_process(asset_name, event_id, axis='X'):
     pdf_spec = pd.DataFrame(spec_dic, index=pdf_wave.index[:len(spectrum)])
 
     # write data frame to influx database
-    db1.write_points(pdf=pdf_spec, meas=asset_name)
+    write_result = db1.write_points(pdf=pdf_spec, meas=asset_name)
+    print('>>>>>> FFT write process to the influxDB result : {}'.format(write_result))
+
+
+def get_axis_list(asset_name):
+    """
+
+    :param asset_name:
+    :return:
+    """
+    axis_list = ["X", "Z"]
+    return axis_list
 
 
 def init():
@@ -154,7 +169,7 @@ def main():
     asset_dic = {}
     asset_list = []
     tags_ids_dic = {}
-    axis_list = ["X", "Z"]
+    
 
     # update config data the first time
     asset_list, asset_dic, tags_ids_dic = update_config_data()
@@ -166,17 +181,17 @@ def main():
     #=========================
     # Redis DB Initialization
     # =========================
-    rt_redis_data = RedisDB()
+    # rt_redis_data = RedisDB()
 
     # Connect to Redis DB
-    rt_redis_data.open_db()
+    # rt_redis_data.open_db()
 
     while True:
         print('>>>>>>>>>>>> while true cycle')
 
         # update real time data
         # Read Apply changes status (Reload Status) from Redis
-        reload_status = ''  #databases_conn.redis_get_value("rt_control:reload:fft")
+        reload_status = "0"  #databases_conn.redis_get_value("rt_control:reload:fft")
         # print("APPLY CHANGES STATUS: %s" % reload_status)
 
         # if "Apply Changes" is set
@@ -185,11 +200,14 @@ def main():
             asset_list, asset_dic, tags_ids_dic = update_config_data()
 
             # Reset Apply Changes flag
-            databases_conn.redis_set_value("rt_control:reload:fft", str(0))
+            # databases_conn.redis_set_value("rt_control:reload:fft", str(0))
             print("RESETTING APPLY CHANGES FLAG")
 
         # scan all assets for the current database
         for asset in asset_list:
+            
+            # Get axis list
+            axis_list = get_axis_list(asset_name=asset)
 
             # scan all axises for the current asset
             for axis in axis_list:
@@ -199,9 +217,11 @@ def main():
 
                 # if a new time domain waveform is ready to process
                 if trigger:
+                    print("trigger")
+                    print(trigger)
 
                     # Run data process function to get the FFT of the TDW for the event change ID
-                    # data_process(asset_name=asset, event_id=even_change_id, axis=axis)
+                    data_process(asset_name=asset, event_id=even_change_id, axis=axis)
                     print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
                     # break
 
