@@ -836,15 +836,20 @@ def write_influx_test_data():
 
     # create an influxdb client
     client = InfluxDBClient(**Config.influx)
-    _time = np.int64(time.time()*1000)
 
     # Generating test data
-    for i in np.arange(10):
+    for i in range(3):
+        # print('>>> loop #1, iter #{}'.format(i))
         count = 0
+        _time = np.int64(time.time() * 1000)
+
         for k in wave.ys:
+            # print('>>> loop #1, iter #{} >>> loop #2, iter #{}'.format(i, count))
+
             if count == 0:
+
                 points = [{
-                    "measurement": 'VIB_SEN1',
+                    "measurement": 'VIB_SEN2',
                     "time": _time + count,
                     "fields": {
                         "WF___X_TDW": k,
@@ -857,12 +862,13 @@ def write_influx_test_data():
                         "WF___Z_FFT": -1.0
                     }
                 }]
+
                 client.write_points(points)  #, time_precision='ms'
 
-
             else:
+
                 points = [{
-                    "measurement": 'VIB_SEN1',
+                    "measurement": 'VIB_SEN2',
                     "time": _time + count,
                     "fields": {
                         "WF___X_TDW": k,
@@ -873,9 +879,13 @@ def write_influx_test_data():
                         "WF___Z_FFT": -1.0
                     }
                 }]
+
+
                 client.write_points(points)  #, time_precision='ms'
+
             count += 1
-        time.sleep(0.001)
+
+        # time.sleep(1)
 
     client.close()
 
