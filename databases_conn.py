@@ -190,7 +190,7 @@ class DBinflux:
         return pdf
 
     def write_points(self, pdf, meas):
-        self.client.write_points(dataframe=pdf, measurement=meas, time_precision='ms')
+        self.client.write_points(dataframe=pdf, measurement=meas)  #time_precision='ms', batch_size=batch_size
 
 
 # ******************* getinrtmatrix Function *****************************************************
@@ -433,33 +433,46 @@ def write_influx_test_data():
 
     # create an influxdb client
     client = InfluxDBClient(**Config.influx)  #host='192.168.21.134', port=8086, database='VIB_DB'
+    _time = np.int64(time.time()*1000)
 
-    count = 0
     # Generating test data
-    for k in wave.ys:
-        if count == 0:
-            points = [{
-                "measurement": 'VIB_SEN1',
-                "fields": {
-                    "WF___Z_TDW": k,
-                    "WF___Z_EVTID": 'eventid33',
-                    "WF___Z_EVT_CHG_ID": 'eventid33',
-                    "WF___Z_FFT": -1.0
-                }
-            }]
-            client.write_points(points, time_precision='ms')
-            count += 1
+    for i in range(10):
+        count = 0
+        for k in wave.ys:
+            if count == 0:
+                points = [{
+                    "measurement": 'VIB_SEN1',
+                    "time": _time + count,
+                    "fields": {
+                        "WF___X_TDW": k,
+                        "WF___X_EVTID": str(_time),
+                        "WF___X_EVT_CHG_ID": str(_time),
+                        "WF___X_FFT": -1.0,
+                        "WF___Z_TDW": k,
+                        "WF___Z_EVTID": str(_time),
+                        "WF___Z_EVT_CHG_ID": str(_time),
+                        "WF___Z_FFT": -1.0
+                    }
+                }]
+                client.write_points(points)  #, time_precision='ms'
 
-        else:
-            points = [{
-                "measurement": 'VIB_SEN1',
-                "fields": {
-                    "WF___Z_TDW": k,
-                    "WF___Z_EVTID": 'eventid33',
-                    "WF___Z_FFT": -1.0
-                }
-            }]
-            client.write_points(points, time_precision='ms')
+
+            else:
+                points = [{
+                    "measurement": 'VIB_SEN1',
+                    "time": _time + count,
+                    "fields": {
+                        "WF___X_TDW": k,
+                        "WF___X_EVTID": str(_time),
+                        "WF___X_FFT": -1.0,
+                        "WF___Z_TDW": k,
+                        "WF___Z_EVTID": str(_time),
+                        "WF___Z_FFT": -1.0
+                    }
+                }]
+                client.write_points(points)  #, time_precision='ms'
+            count += 1
+        time.sleep(1)
 
     client.close()
 

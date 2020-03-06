@@ -135,10 +135,15 @@ def data_process(asset_name, event_id, axis='X'):
 
     # convert pandas dataframe
     pdf_spec = pd.DataFrame(spec_dic, index=pdf_wave.index[:len(spectrum)])
+    batch_size = len(spectrum)
+
+    pdf_wave.index.astype(np.int64)
 
     # write data frame to influx database
-    write_result = db1.write_points(pdf=pdf_spec, meas=asset_name)
-    print('>>>>>> FFT write process to the influxDB result : {}'.format(write_result))
+    db1.write_points(pdf=pdf_spec, meas=asset_name)  #, batch_size=batch_size
+    print('>>>>>>> spectrum dataframe: {}'.format(pdf_spec))
+    # print('>>>>>>> spectrum dataframe: {}'.format(pdf_spec['time'])
+    print('>>>>>>> data_process done')
 
 
 def get_axis_list(asset_name):
@@ -176,7 +181,6 @@ def main():
     print('asset_list >> {}'.format(asset_list))
     print('asset_dic >> {}'.format(asset_dic))
     print('tags_ids_dic >> {}'.format(tags_ids_dic))
-
 
     #=========================
     # Redis DB Initialization
@@ -217,8 +221,7 @@ def main():
 
                 # if a new time domain waveform is ready to process
                 if trigger:
-                    print("trigger")
-                    print(trigger)
+                    print("trigger: {}".format(trigger))
 
                     # Run data process function to get the FFT of the TDW for the event change ID
                     data_process(asset_name=asset, event_id=even_change_id, axis=axis)

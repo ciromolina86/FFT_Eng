@@ -6,6 +6,10 @@ import fft_eng
 import influxdb_conn
 import matplotlib.pyplot as plt
 
+from influxdb import InfluxDBClient
+from influxdb import DataFrameClient
+from databases_conn import Config
+
 
 def test1():
     print('test1 ran!')
@@ -277,6 +281,235 @@ def test5():
         for tag, id in dic[x]:
             print(id)
 
+def test6():
+    from influxdb import InfluxDBClient
+    from influxdb import DataFrameClient
+    from databases_conn import Config
+
+    # create a testing wave
+    wave = [1.1]*10
+    time = [1583448055962001, 1583448055962002, 1583448055962003, 1583448055962004, 1583448055962005,
+            1583448055962006, 1583448055962007, 1583448055962008, 1583448055962009, 1583448055962010]
+
+
+    # create an influxdb client
+    client = InfluxDBClient(**Config.influx)
+
+    # Generating test data
+    for k in range(len(wave)):
+
+         points = [{
+            "measurement": 'TEST2',
+            'time': time[k],
+            "fields": {"x": wave[k], "y": -999.99}
+         }]
+
+         client.write_points(points)  # , time_precision='ms'
+
+    client.close()
+
+def test777():
+    from influxdb import InfluxDBClient
+    from influxdb import DataFrameClient
+    from databases_conn import Config
+
+    # create an instance of DBinflux
+    db1 = DataFrameClient(**Config.influx)
+
+    # create query
+    sql = "select * from TEST2"
+
+    # Execute query
+    datasets_dic = db1.query(sql)
+
+    # Get pandas data frame
+    pdf_wave = datasets_dic['TEST2']
+    print('>>> pdf read')
+    # print(pdf_wave)
+
+    # Create new pandas dataframe
+    spec_dic = {'fft': pdf_wave['x'][:5]+10}
+    pdf_spec = pd.DataFrame(spec_dic, index=pdf_wave.index[:5])
+    print('>>> pdf written')
+    # print(pdf_spec)
+
+    # write data frame to influx database
+    db1.write_points(dataframe=pdf_spec, measurement='TEST2')
+
+    db1.close()
+
+def test8():
+    from influxdb import InfluxDBClient
+    from influxdb import DataFrameClient
+    from databases_conn import Config
+
+    # create an instance of DBinflux
+    db1 = InfluxDBClient(**Config.influx)
+
+    # create query
+    sql = "select x from TEST"
+
+    # Execute query
+    resultset = list(db1.query(sql).get_points(measurement='TEST'))
+
+    for row in resultset:
+        # print('{} -- {}'.format(row['time'], row['x']))
+        points = [{
+            "measurement": 'TEST',
+            "time": row['time'],
+            "fields": {"y":  row['x']+1}
+        }]
+
+        db1.write_points(points)  # , time_precision='ms'
+
+    db1.close()
+
+def test9():
+    from influxdb import InfluxDBClient
+    from influxdb import DataFrameClient
+    from databases_conn import Config
+
+    # create an instance of DBinflux
+    db1 = DataFrameClient(**Config.influx)
+
+    # create query
+    sql = "select * from TEST1"
+
+    # Execute query
+    datasets_dic = db1.query(sql)
+
+    # Get pandas data frame
+    pdf_read = datasets_dic['TEST1']
+    print('>>> pdf read')
+    # print(pdf_read)
+
+    # Dummy fft
+    fft = [66.6, 77.7, 88.8]
+    fft_len = len(fft)
+    fft_index = 0
+
+    # Replace values with new numbers
+    for ind in pdf_read.index:
+        if fft_index < fft_len:
+            pdf_read['fft'][ind] = fft[fft_index]
+            fft_index += 1
+        else:
+            break
+
+    print('>>> pdf written')
+    # print(pdf_read)
+
+    # write dataframe back to influx database
+    db1.write_points(pdf_read, 'TEST1')
+
+
+def test_yandy():
+    """Instantiate the connection to the InfluxDB client."""
+    user = ''
+    password = ''
+    dbname = 'YANDY_TEST_DB'
+    protocol = 'line'
+
+    client = DataFrameClient(**Config.influx)  #host, port, user, password, dbname
+
+    print("Create pandas DataFrame")
+    data_csv_path = "C:\\Users\\cmolina\\Desktop\\test_forecast.csv"
+    df = pd.read_csv(data_csv_path, delimiter=',')
+
+    df['Time'] = pd.to_datetime(df['Time'])
+    df.set_index('Time', inplace=True)
+
+    # print("Create database: " + dbname)
+    # client.create_database(dbname)
+
+    print("Write DataFrame FIRST TIME")
+    client.write_points(df, 'MEAS_TEST', protocol=protocol)
+
+    client.close()
+
+    # ===============================================================================
+    client = DataFrameClient(**Config.influx)  # host, port, user, password, dbname
+
+    print("Read DataFrame FIRST TIME")
+    datasets_dic = client.query("select * from MEAS_TEST")
+    pdf_read = datasets_dic['MEAS_TEST']
+    # datasets_dic = client.query("select * from TEST")
+    # pdf_read = datasets_dic['TEST']
+
+    # Dummy fft
+    fft = [66.6, 77.7, 88.8, 66.6]
+    fft_len = len(fft)
+    fft_index = 0
+
+    # Replace values with dummy numbers
+    for ind in pdf_read.index:
+        if fft_index < fft_len:
+            pdf_read['target'][ind] = fft[fft_index]
+            fft_index += 1
+        else:
+            break
+
+    print("Write DataFrame SECOND TIME")
+    client.write_points(pdf_read, 'MEAS_TEST')
+    # client.write_points(pdf_read, 'TEST')
+
+    client.close()
+
+def test16():
+    from influxdb import InfluxDBClient
+    from influxdb import DataFrameClient
+    from databases_conn import Config
+
+    # create a testing wave
+    wave = [1.1]*10
+    fft = [-999.99]*10
+    time = [1583448055962001, 1583448055962002, 1583448055962003, 1583448055962004, 1583448055962005,
+            1583448055962006, 1583448055962007, 1583448055962008, 1583448055962009, 1583448055962010]
+
+    # create an influxdb client
+    client = DataFrameClient(**Config.influx)
+
+    # create points dataframe
+    points_df = pd.DataFrame({'time': time, 'wave': wave, 'fft': fft})
+
+    points_df['time'] = pd.to_datetime(points_df['time'])
+    points_df.set_index('time', inplace=True)
+
+    # write test data
+    print("Write DataFrame FIRST TIME")
+    client.write_points(points_df, 'TEST1')
+
+    # read test data
+    print("Read DataFrame FIRST TIME")
+    datasets_dic = client.query("select * from TEST1")
+    pdf_read = datasets_dic['TEST1']
+
+    # Dummy fft
+    fft = [11.1, 22.2, 33.3, 44.4]
+    fft_len = len(fft)
+    fft_index = 0
+
+    # Replace values with dummy numbers
+    for ind in pdf_read.index:
+        if fft_index < fft_len:
+            pdf_read['fft'][ind] = fft[fft_index]
+            fft_index += 1
+        else:
+            break
+
+    print("Write DataFrame SECOND TIME")
+    client.write_points(pdf_read, 'TEST1')
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     '''execute only if run as a main script'''
@@ -284,5 +517,10 @@ if __name__ == "__main__":
 
     # write_csv()
     # write_csv2()
-    test5()
-
+    # test5()
+    # test6()
+    test777()
+    # test8()
+    # test9()
+    # test_yandy()
+    # test16()
