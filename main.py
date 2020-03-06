@@ -98,6 +98,148 @@ def check_for_new_tdw(asset, axis):
     # return trigger and first event id
     return p_trigger, even_change_id
 
+# *********************************************************************************
+# **************************new functions *******************************************************
+
+
+def read_acc_tdw(asset_name, event_id, axis='X'):
+    """
+    It returns a data frame with the Influxdb reading for the specific axis
+
+    :param asset_name: string
+    :param event_id: string
+    :param axis: string
+    :return: pandas data frame
+    """
+
+    # Initialization
+
+    _timestamp = 'time'
+    fft = 'WF___{}_FFT'.format(axis)
+    fft_red = 'WF___{}_FFT_RED'.format(axis)
+    freq = 'WF___{}_FREQ'.format(axis)
+    freq_red = 'WF___{}_FREQ_RED'.format(axis)
+    tdw = 'WF___{}_TDW'.format(axis)
+    wf_evt_id = 'WF___{}_EVTID'.format(axis)
+    evt_id = "'{}'".format(event_id)
+
+    # create an instance of DBinflux
+    db1 = databases_conn.DBinflux(config=Config.influx)
+
+    # sql = "select * from " + asset_name
+    sql = "select {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, asset_name, wf_evt_id, evt_id)
+    binds = {}
+
+    # Execute query
+    datasets_dic = db1.query(sql)
+
+    # Get pandas data frame
+    acc_tdw_pdf = datasets_dic[asset_name]
+
+    return acc_tdw_pdf
+
+
+def pdf_to_influxdb(process_pdf, asset_name):
+    """
+    It writes the data frame to Influxdb
+    :param process_pdf:
+    :param asset_name:
+    :return:
+    """
+    # create an instance of DBinflux
+    db1 = databases_conn.DBinflux(config=Config.influx)
+
+    # write data frame to influx database
+    db1.write_points(pdf=process_pdf, meas=asset_name)  # , batch_size=batch_size
+
+    print('>>>>>>> data_process done')
+
+
+def get_precess_pdf(acc_tdw_pdf, framerate, window='hanning'):
+    """
+    It returns the pandas data frame of the acceleration wave
+    :param acc_tdw_pdf:
+    :param framerate:
+    :param window:
+    :return: pandas data frame
+    """
+    acceleration_fft = 'WF___{}_FFT'.format(axis)
+    acceleration_freq = 'WF___{}_FREQ'.format(axis)
+    velocity_fft = 'WF___{}_FFT_V'.format(axis)
+    velocity_freq = 'WF___{}_FREQ_V'.format(axis)
+    velocity_tdw = 'WF___{}_TDW_V'.format(axis)
+
+    acceleration_tdw_red = 'WF___{}_FFT_RED'.format(axis)
+    acceleration_fft_red = 'WF___{}_FFT_RED'.format(axis)
+    acceleration_freq_red = 'WF___{}_FREQ_RED'.format(axis)
+    velocity_tdw_red = 'WF___{}_TDW_V_RED'.format(axis)
+    velocity_fft_red = 'WF___{}_FFT_V_RED'.format(axis)
+    velocity_freq_red = 'WF___{}_FREQ_V_RED'.format(axis)
+
+
+
+    # create  acc_wave and spectrum
+    acc_wave = thinkdsp.Wave(ys=acc_tdw_pdf[tdw], ts=np.linspace(0, 1, 100), framerate=framerate)
+    vel_tdw = fft_eng.integrate(acc_wave)
+    acc_spectrum = fft_eng.get_spectrum(wave=acc_wave, window=window)
+    vel_spectrum = fft_eng.get_spectrum(wave=vel_wave, window=window)
+
+    acc_tdw_red = get_signal_red_version(acc_wave.ys)
+    acc_fft_red = get_signal_red_version(acc_spectrum.amps)
+    vel_tdw_red = get_signal_red_version(vel_tdw)
+    vel_fft_red = get_signal_red_version(vel_spectrum.amps)
+
+    # create dictionary to use on pandas data frame creation
+    final_dic = {
+                acceleration_fft: acc_spectrum.amps, acceleration_freq: acc_spectrum.fs,
+                velocity_fft: vel_spectrum.amps, velocity_freq: vel_spectrum.fs,
+                velocity_tdw: vel_tdw,
+                acceleration_tdw_red: acc_tdw_red, acceleration_fft_red: acc_fft_red,
+                acceleration_freq_red: acc_spectrum.fs,
+                velocity_tdw_red: vel_tdw_red, velocity_fft_red: vel_fft_red,
+                velocity_freq_red: vel_spectrum.fs
+                }
+
+    # convert pandas dataframe
+    # final_pdf = pd.DataFrame(final_dic, index=pdf_wave.index[:len(spectrum)])
+    final_pdf = pd.DataFrame(final_dic, index=pdf_wave.index)
+    return final_pdf
+
+
+def process(asset_name, event_id, axis='X'):
+
+
+    acc_tdw_pdf = read_acc_tdw(asset_name, event_id, axis='X')
+
+    process_pdf = get_precess_pdf(acc_tdw_pdf, framerate, window='hanning')
+
+    pdf_to_influxdb(process_pdf, asset_name)
+
+
+
+
+def get_vel_tdw_pdf(acc_tdw_pdf):
+
+
+    pass
+
+def get_vel_fft_pdf(acc_fft_pdf):
+    pass
+
+
+def get_signal_red_version(signal):
+    """
+    TODO
+    :param signal:
+    :return:
+    """
+
+
+    return signal
+
+# ***********************************************************************************
+# **********************************************************************************
+
 
 def data_process(asset_name, event_id, axis='X'):
     # Initialization
