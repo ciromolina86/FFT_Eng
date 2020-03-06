@@ -155,7 +155,7 @@ def pdf_to_influxdb(process_pdf, asset_name):
     print('>>>>>>> data_process done')
 
 
-def get_precess_pdf(acc_tdw_pdf, framerate, window='hanning'):
+def get_precess_pdf(tdw_pdf, framerate, acc = true, window='hanning'):
     """
     It returns the pandas data frame of the acceleration wave
     :param acc_tdw_pdf:
@@ -176,13 +176,19 @@ def get_precess_pdf(acc_tdw_pdf, framerate, window='hanning'):
     velocity_fft_red = 'WF___{}_FFT_V_RED'.format(axis)
     velocity_freq_red = 'WF___{}_FREQ_V_RED'.format(axis)
 
-
-
     # create  acc_wave and spectrum
-    acc_wave = thinkdsp.Wave(ys=acc_tdw_pdf[tdw], ts=np.linspace(0, 1, 100), framerate=framerate)
-    vel_tdw = fft_eng.integrate(acc_wave)
-    acc_spectrum = fft_eng.get_spectrum(wave=acc_wave, window=window)
-    vel_spectrum = fft_eng.get_spectrum(wave=vel_wave, window=window)
+    wave = thinkdsp.Wave(ys=tdw_pdf[tdw], ts=np.linspace(0, 1, 100), framerate=framerate)
+
+    if acc:
+        vel_tdw = fft_eng.integrate(wave)
+        vel_wave = thinkdsp.Wave(ys=vel_tdw, ts=np.linspace(0, 1, 100), framerate=framerate)
+        acc_spectrum = fft_eng.get_spectrum(wave=wave, window=window)
+        vel_spectrum = fft_eng.get_spectrum(wave=vel_wave, window=window)
+    else:
+        acc_tdw = fft_eng.derivate(wave)
+        acc_wave = thinkdsp.Wave(ys=acc_tdw, ts=np.linspace(0, 1, 100), framerate=framerate)
+        acc_spectrum = fft_eng.get_spectrum(wave=acc_wave, window=window)
+        vel_spectrum = fft_eng.get_spectrum(wave=wave, window=window)
 
     acc_tdw_red = get_signal_red_version(acc_wave.ys)
     acc_fft_red = get_signal_red_version(acc_spectrum.amps)
