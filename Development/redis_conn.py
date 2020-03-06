@@ -17,12 +17,7 @@
 
 import json
 import time
-import os
 import numpy as np
-import redis_conn
-
-
-
 
 
 def getinrtmatrix(intagsstr):
