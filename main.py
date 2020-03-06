@@ -243,15 +243,22 @@ def get_precess_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
     return final_pdf_list
 
 
-def process(asset_name, event_id, axis='X'):
+def process(asset_name, event_id, framerate, axis='X'):
+    """
+    Process data
+    :param asset_name:
+    :param event_id:
+    :param axis:
+    :return:
+    """
 
-    framerate = 100
-    acc_tdw_pdf = read_acc_tdw(asset_name, event_id, axis=axis)
+    # Get the time domain waveform in a python data frame
+    tdw_pdf = read_acc_tdw(asset_name, event_id, axis=axis)
 
-    process_pdf_list = get_precess_pdf(acc_tdw_pdf, framerate, window='hanning', axis=axis)
+    # Get a python data frame per column that we need as el list
+    process_pdf_list = get_precess_pdf(tdw_pdf, framerate, window='hanning', axis=axis)
 
-    # print(process_pdf_list)
-
+    # write to influxdb all the pandas data frame in a provided list
     pdf_to_influxdb(process_pdf_list, asset_name)
 
 
@@ -400,7 +407,9 @@ def main():
 
                     # Run data process function to get the FFT of the TDW for the event change ID
                     # data_process(asset_name=asset, event_id=even_change_id, axis=axis)
-                    process(asset_name=asset, event_id=even_change_id, axis=axis)
+
+                    # Process
+                    process(asset_name=asset, event_id=even_change_id, framerate=100, axis=axis)
                     print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
                     # break
 
