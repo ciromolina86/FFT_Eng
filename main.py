@@ -15,6 +15,7 @@ import databases_conn
 from databases_conn import Config
 from databases_conn import DBinflux
 from databases_conn import DBmysql
+from redisdb import RedisDB
 
 
 def update_config_data():
@@ -36,7 +37,6 @@ def update_config_data():
 
     # return config data
     return asset_list, asset_dic, tags_ids_dic
-
 
 def check_for_new_tdw(asset, axis):
     """
@@ -90,10 +90,6 @@ def check_for_new_tdw(asset, axis):
     # return trigger and first event id
     return p_trigger, even_change_id
 
-# *********************************************************************************
-# **************************new functions *******************************************************
-
-
 def read_acc_tdw(asset_name, event_id, axis='X'):
     """
     It returns a data frame with the Influxdb reading for the specific axis
@@ -126,34 +122,16 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
     datasets_dic = db1.query(sql)
 
     # Get pandas data frame
-    acc_tdw_pdf = datasets_dic[asset_name]
+    tdw_pdf = datasets_dic[asset_name]
 
-    return acc_tdw_pdf
+    return tdw_pdf
 
-
-def pdf_to_influxdb(process_pdf_list, asset_name):
-    """
-    It writes the data frame to Influxdb
-    :param process_pdf:
-    :param asset_name:
-    :return:
-    """
-    # create an instance of DBinflux
-    db1 = databases_conn.DBinflux(config=Config.influx)
-
-    for process_pdf in process_pdf_list:
-        # write data frame to influx database
-        db1.write_points(pdf=process_pdf, meas=asset_name)  # , batch_size=batch_size
-
-    print('>>>>>>> data_process done')
-
-
-def get_precess_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
+def get_process_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
     """
     It returns the pandas data frame of the acceleration wave
-    :param acc_tdw_pdf:
-    :param framerate:
-    :param window:
+    :param tdw_pdf: pandas dataframe
+    :param framerate: real
+    :param window: string
     :return: pandas data frame
     """
     tdw = 'WF___{}_TDW'.format(axis)
@@ -172,17 +150,23 @@ def get_precess_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
     # init
     final_pdf_list = []
 
+    # compute tdw duration (in time)
+    duration = len(tdw_pdf[tdw]) / framerate
+    N = len(tdw_pdf[tdw])
+
     # create  wave from pdf
-    wave = thinkdsp.Wave(ys=tdw_pdf[tdw], ts=np.linspace(0, 1, 100), framerate=framerate)
+    wave = thinkdsp.Wave(ys=tdw_pdf[tdw], ts=np.linspace(0, duration, N), framerate=framerate)
 
     # if collecting acceleration
     if acc:
+        # TODO: acc_tdw = wave.copy()
         vel_wave = fft_eng.integrate(wave)
         vel_tdw = vel_wave.ys
         acc_spectrum = fft_eng.get_spectrum(wave=wave, window=window)
         vel_spectrum = fft_eng.get_spectrum(wave=vel_wave, window=window)
 
         # get reduced signal
+        # TODO
         acc_tdw_red = get_signal_red_version(wave.ys)
         acc_fft_red = get_signal_red_version(acc_spectrum.amps)
         vel_tdw_red = get_signal_red_version(vel_tdw)
@@ -235,6 +219,19 @@ def get_precess_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
 
     return final_pdf_list
 
+def pdf_to_influxdb(process_pdf_list, asset_name):
+    """
+    It writes the data frame to Influxdb
+    :param process_pdf: list of pandas dataframe
+    :param asset_name: string
+    :return:
+    """
+    # create an instance of DBinflux
+    db1 = DBinflux(config=Config.influx)
+
+    for process_pdf in process_pdf_list:
+        # write data frame to influx database
+        db1.write_points(pdf=process_pdf, meas=asset_name)
 
 def process(asset_name, event_id, framerate, axis='X'):
     """
@@ -249,16 +246,10 @@ def process(asset_name, event_id, framerate, axis='X'):
     tdw_pdf = read_acc_tdw(asset_name, event_id, axis=axis)
 
     # Get a python data frame per column that we need as el list
-    process_pdf_list = get_precess_pdf(tdw_pdf, framerate, window='hanning', axis=axis)
+    process_pdf_list = get_process_pdf(tdw_pdf, framerate, window='hanning', axis=axis)
 
     # write to influxdb all the pandas data frame in a provided list
     pdf_to_influxdb(process_pdf_list, asset_name)
-
-
-
-
-
-
 
 def get_signal_red_version(signal):
     """
@@ -269,10 +260,6 @@ def get_signal_red_version(signal):
 
 
     return signal
-
-# ***********************************************************************************
-# **********************************************************************************
-
 
 def data_process(asset_name, event_id, axis='X'):
     # Initialization
@@ -316,7 +303,6 @@ def data_process(asset_name, event_id, axis='X'):
     # print('>>>>>>> spectrum dataframe: {}'.format(pdf_spec))
     print('>>>>>>> data_process done')
 
-
 def get_axis_list(asset_name):
     """
 
@@ -329,7 +315,6 @@ def get_axis_list(asset_name):
     # return axis list
     return axis_list
 
-
 def init():
     '''
 
@@ -338,7 +323,6 @@ def init():
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
     print('>>>>>>>>>>>> running INIT! ')
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-
 
 def main():
     ''' execute main code '''
@@ -363,10 +347,10 @@ def main():
     #=========================
     # Redis DB Initialization
     # =========================
-    # rt_redis_data = RedisDB()
+    rt_redis_data = RedisDB()
 
     # Connect to Redis DB
-    # rt_redis_data.open_db()
+    rt_redis_data.open_db()
 
     while True:
         # print('>>>>>>>>>>>> while true cycle')
@@ -391,6 +375,14 @@ def main():
             # Get axis list
             axis_list = get_axis_list(asset_name=asset)
 
+            # get sampling frequency internalTagID
+            for tag, id in tags_ids_dic.get(asset):
+                if tag == 'CFG___FS':
+                    framerate_id_str = str(id)
+
+            # get real time sampling frequency value
+            framerate_ts, framerate_current_value = databases_conn.getinrtmatrix(framerate_id_str)
+
             # scan all axises for the current asset
             for axis in axis_list:
 
@@ -399,14 +391,12 @@ def main():
 
                 # if a new time domain waveform is ready to process
                 if trigger:
-                    print("trigger: {}".format(trigger))
-
                     # Run data process function to get the FFT of the TDW for the event change ID
                     # data_process(asset_name=asset, event_id=even_change_id, axis=axis)
 
-                    # Process
-                    process(asset_name=asset, event_id=even_change_id, framerate=100, axis=axis)
-                    print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
+                    # Data Processing
+                    process(asset_name=asset, event_id=even_change_id, framerate=framerate_current_value, axis=axis)
+                    # print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
                     # break
 
         print('cycle time: {}'.format(np.int64(time.time()*1000)))

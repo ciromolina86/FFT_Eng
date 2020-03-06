@@ -6,7 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import hilbert
 import json
-from scipy.stats import kurtosis
+# from scipy.stats import kurtosis
+import lttb
 
 def read_sde_tag(query='0'):
     ''' read latest value of sde tag
@@ -463,15 +464,152 @@ def derivate(w):
     # returns the new integrated wave
     return y
 
+# def get_kurtosis(a):
+#     # returns the kurtosis of a dataset
+#     return kurtosis(a=a)
 
-def get_kurtosis(a):
-    # returns the kurtosis of a dataset
-    return kurtosis(a=a)
+# def plot_kurtogram():
+#     # placeholder for kurtogram function
+#     # plots the kurtogram
+#     print('plotting kurtogram')
 
-def plot_kurtogram():
-    # placeholder for kurtogram function
-    # plots the kurtogram
-    print('plotting kurtogram')
+def get_col_and_rows_numpy_array(numpy_array):
+    """
+
+    :param numpy_array:
+    :return:
+    """
+    # Check Array Dimension
+    numpy_array_dim = numpy_array.ndim
+
+    if numpy_array_dim == 2:
+        # Get number of columns of the numpy array
+        numpy_array_row, numpy_array_col = numpy_array.shape
+    elif numpy_array_dim == 1:
+        numpy_array_row = numpy_array.size
+        numpy_array_col = 1
+    else:
+        numpy_array_row = 0
+        numpy_array_col = 0
+        print("Error: Wrong Input Matrix Dimension")
+
+    return numpy_array_row, numpy_array_col
+
+def dataset_downsampling_lttb_ts(np, data_v_in, data_ts_in, overview_max_datapoints, row_count_in, column_count_in):
+    """
+
+    :param np:
+    :param data_v_in:
+    :param data_ts_in:
+    :param overview_max_datapoints:
+    :param row_count_in:
+    :param column_count_in:
+    :return:
+    """
+
+    #############################################################################
+    # Down-sampling Data Set if it is needed
+    #############################################################################
+    # Get number of  data points
+    datapoints_count = int(column_count_in) * int(row_count_in)
+    overview_max_row = int(int(overview_max_datapoints) / int(column_count_in))
+
+    if datapoints_count > overview_max_datapoints:
+        # Create Index Array
+        data_v = data_v_in.copy()
+        data_ts = data_ts_in.copy()
+        ind = np.linspace(1, len(data_v[:, 0]), len(data_v[:, 0]))
+        ind = np.asmatrix(ind)
+        ind = ind.T
+
+        # Concatenate Index and Data Value array
+        data_v = np.concatenate((ind, data_v), axis=1)
+
+        # Convert to array
+        data_v = np.asarray(data_v)
+        data_ts = np.asarray(data_ts)
+
+        # Downsample using LTTB
+        data_v_out_tmp, data_ts_out = lttb.lttb_downsample_ts(np, data_v, data_ts, overview_max_row)
+
+        # Check Array Dimension for Array with real values
+        data_v_out_dim = data_v_out_tmp.ndim
+
+        if data_v_out_dim == 2:
+            # Get number of columns of the numpy array
+            data_v_out_row, data_v_out_col = data_v_out_tmp.shape
+        elif data_v_out_dim == 1:
+            data_v_out_col = 1
+        else:
+            data_v_out_col = 0
+            print("Error: Wrong Input Matrix Dimension")
+
+        # Remove Index Column
+        data_v_out = data_v_out_tmp[:, 1:data_v_out_col]
+
+    else:
+        data_v_out = data_v_in.copy()
+        data_ts_out = data_ts_in.copy()
+
+    # Transform to numpy matrix
+    data_v_out = np.asmatrix(data_v_out)
+    data_ts_out = np.asmatrix(data_ts_out)
+
+    return data_v_out, data_ts_out
+
+def dataset_downsampling_lttb(np, data_v_in, overview_max_datapoints, row_count_in, column_count_in):
+    """
+
+    :param np:
+    :param data_v_in:
+    :param overview_max_datapoints:
+    :param row_count_in:
+    :param column_count_in:
+    :return:
+    """
+
+    #############################################################################
+    # Down-sampling Data Set if it is needed
+    #############################################################################
+    # Get number of  data points
+    datapoints_count = int(column_count_in) * int(row_count_in)
+    overview_max_row = int(int(overview_max_datapoints) / int(column_count_in))
+
+    if datapoints_count > overview_max_datapoints:
+        # Create Index Array
+        data_v = data_v_in.copy()
+        ind = np.linspace(1, len(data_v[:, 0]), len(data_v[:, 0]))
+        ind = np.asmatrix(ind)
+        ind = ind.T
+
+        # Concatenate Index and Data Value array
+        data_v = np.concatenate((ind, data_v), axis=1)
+
+        # Convert to array
+        data_v = np.asarray(data_v)
+
+        # Downsample using LTTB
+        data_v_out_tmp = lttb.lttb_downsample(np, data_v, overview_max_row)
+
+        # Check Array Dimension for Array with real values
+        data_v_out_dim = data_v_out_tmp.ndim
+
+        if data_v_out_dim == 2:
+            # Get number of columns of the numpy array
+            data_v_out_row, data_v_out_col = data_v_out_tmp.shape
+        elif data_v_out_dim == 1:
+            data_v_out_col = 1
+        else:
+            data_v_out_col = 0
+            print("Error: Wrong Input Matrix Dimension")
+
+        # Remove Index Column
+        data_v_out = data_v_out_tmp[:, 1:data_v_out_col]
+
+    else:
+        data_v_out = data_v_in.copy()
+
+    return data_v_out
 
 '''=================================================='''
 

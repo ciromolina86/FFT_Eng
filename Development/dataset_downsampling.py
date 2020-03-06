@@ -1,4 +1,3 @@
-
 import lttb
 import pandas as pd
 import numpy as np
@@ -177,4 +176,4 @@ downsampled_mtx, downsampled_mtx_ts = dataset_downsampling_lttb_ts(np, input_mtx
 #row_count, column_count = get_col_and_rows_numpy_array(input_mtx)
 #downsampled_mtx = dataset_downsampling_lttb(np, input_mtx, max_datapoints, row_count, column_count)
 
-print downsampled_mtx.shape
+print(downsampled_mtx.shape)

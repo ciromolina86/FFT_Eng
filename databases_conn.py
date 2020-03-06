@@ -120,7 +120,7 @@ class DBmysql:
     def get_vib_tags_id_dic(self):
         '''
 
-        :return:a tag:id dictionary like this: {'group1___tag1': internalTagID1}
+        :return:a tag:id dictionary like this: {'asset': ['group1___tag1': internalTagID1, ...]}
         '''
         # print('get_vib_tags_id_dic was executed')
 
