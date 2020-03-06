@@ -139,7 +139,7 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
     return acc_tdw_pdf
 
 
-def pdf_to_influxdb(process_pdf, asset_name):
+def pdf_to_influxdb(process_pdf_list, asset_name):
     """
     It writes the data frame to Influxdb
     :param process_pdf:
@@ -149,8 +149,9 @@ def pdf_to_influxdb(process_pdf, asset_name):
     # create an instance of DBinflux
     db1 = databases_conn.DBinflux(config=Config.influx)
 
-    # write data frame to influx database
-    db1.write_points(pdf=process_pdf, meas=asset_name)  # , batch_size=batch_size
+    for process_pdf in process_pdf_list:
+        # write data frame to influx database
+        db1.write_points(pdf=process_pdf, meas=asset_name)  # , batch_size=batch_size
 
     print('>>>>>>> data_process done')
 
@@ -167,7 +168,6 @@ def get_precess_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
     acceleration_fft = 'WF___{}_FFT'.format(axis)
     acceleration_freq = 'WF___{}_FREQ'.format(axis)
     velocity_fft = 'WF___{}_FFT_V'.format(axis)
-    velocity_freq = 'WF___{}_FREQ_V'.format(axis)
     velocity_tdw = 'WF___{}_TDW_V'.format(axis)
 
     acceleration_tdw_red = 'WF___{}_FFT_RED'.format(axis)
@@ -175,7 +175,9 @@ def get_precess_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
     acceleration_freq_red = 'WF___{}_FREQ_RED'.format(axis)
     velocity_tdw_red = 'WF___{}_TDW_V_RED'.format(axis)
     velocity_fft_red = 'WF___{}_FFT_V_RED'.format(axis)
-    velocity_freq_red = 'WF___{}_FREQ_V_RED'.format(axis)
+
+    # init
+    final_pdf_list = []
 
     # create  wave from pdf
     wave = thinkdsp.Wave(ys=tdw_pdf[tdw], ts=np.linspace(0, 1, 100), framerate=framerate)
@@ -193,6 +195,19 @@ def get_precess_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
         vel_tdw_red = get_signal_red_version(vel_tdw)
         vel_fft_red = get_signal_red_version(vel_spectrum.amps)
 
+        # create dictionary to use on pandas data frame creation
+        dic_list = [
+            {acceleration_fft: acc_spectrum.amps},
+            {velocity_tdw: vel_tdw},
+            {velocity_fft: vel_spectrum.amps},
+
+            {acceleration_tdw_red: acc_tdw_red},
+            {acceleration_fft_red: acc_fft_red},
+            {velocity_tdw_red: vel_tdw_red},
+            {velocity_fft_red: vel_fft_red},
+            {acceleration_freq: acc_spectrum.fs}
+        ]
+
     # if collecting velocity
     else:
         acc_wave = fft_eng.derivate(wave)
@@ -201,27 +216,31 @@ def get_precess_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
         vel_spectrum = fft_eng.get_spectrum(wave=wave, window=window)
 
         # get reduced signal
-        acc_tdw_red = get_signal_red_version(acc_wave.ys)
+        acc_tdw_red = get_signal_red_version(acc_tdw)
         acc_fft_red = get_signal_red_version(acc_spectrum.amps)
         vel_tdw_red = get_signal_red_version(wave.ys)
         vel_fft_red = get_signal_red_version(vel_spectrum.amps)
 
-    # create dictionary to use on pandas data frame creation
-    final_dic = {
-                acceleration_fft: acc_spectrum.amps,
-                acceleration_freq: acc_spectrum.fs,
-                velocity_fft: vel_spectrum.amps,
-                velocity_tdw: vel_tdw,
-                acceleration_tdw_red: acc_tdw_red,
-                acceleration_fft_red: acc_fft_red,
-                velocity_tdw_red: vel_tdw_red,
-                velocity_fft_red: vel_fft_red
-                }
+        # create list of dictionary to use on pandas data frame creation
+        dic_list = [
+            {velocity_fft: vel_spectrum.amps},
+            {acceleration_tdw: acc_tdw},
+            {acceleration_fft: acc_spectrum.amps},
 
-    # convert pandas dataframe
-    # final_pdf = pd.DataFrame(final_dic, index=pdf_wave.index[:len(spectrum)])
-    final_pdf = pd.DataFrame(final_dic, index=tdw_pdf.index)
-    return final_pdf
+            {acceleration_tdw_red: acc_tdw_red},
+            {acceleration_fft_red: acc_fft_red},
+            {velocity_tdw_red: vel_tdw_red},
+            {velocity_fft_red: vel_fft_red},
+            {acceleration_freq: acc_spectrum.fs}
+        ]
+
+    # Create list of pdf from list of dictionaries
+
+    for d in dic_list:
+        for key, value in d.iteritems():
+            final_pdf_list.append(pd.DataFrame(d, index=tdw_pdf.index[:len(value)]))
+
+    return final_pdf_list
 
 
 def process(asset_name, event_id, axis='X'):
@@ -229,20 +248,16 @@ def process(asset_name, event_id, axis='X'):
     framerate = 100
     acc_tdw_pdf = read_acc_tdw(asset_name, event_id, axis=axis)
 
-    process_pdf = get_precess_pdf(acc_tdw_pdf, framerate, window='hanning', axis=axis)
+    process_pdf_list = get_precess_pdf(acc_tdw_pdf, framerate, window='hanning', axis=axis)
 
-    pdf_to_influxdb(process_pdf, asset_name)
+    # print(process_pdf_list)
 
-
-
-
-def get_vel_tdw_pdf(acc_tdw_pdf):
+    pdf_to_influxdb(process_pdf_list, asset_name)
 
 
-    pass
 
-def get_vel_fft_pdf(acc_fft_pdf):
-    pass
+
+
 
 
 def get_signal_red_version(signal):
@@ -384,8 +399,8 @@ def main():
                     print("trigger: {}".format(trigger))
 
                     # Run data process function to get the FFT of the TDW for the event change ID
-                    data_process(asset_name=asset, event_id=even_change_id, axis=axis)
-                    # process(asset_name=asset, event_id=even_change_id, axis=axis)
+                    # data_process(asset_name=asset, event_id=even_change_id, axis=axis)
+                    process(asset_name=asset, event_id=even_change_id, axis=axis)
                     print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
                     # break
 
