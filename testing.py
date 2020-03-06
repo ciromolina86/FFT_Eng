@@ -1,14 +1,17 @@
-from ThinkX import thinkdsp
-import pandas as pd
+import json
+import time
 import numpy as np
-import fft_eng
-
-import influxdb_conn
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from influxdb import InfluxDBClient
 from influxdb import DataFrameClient
+
+from ThinkX import thinkdsp
 from databases_conn import Config
+from databases_conn import DBmysql
+from databases_conn import DBinflux
+import fft_eng
 
 
 def test1():
@@ -210,17 +213,6 @@ def test2():
 
     plt.show()
 
-def test3():
-    ''' testing writing data to influxdb
-
-    :return:
-    '''
-
-    print('test3 ran!')
-
-    # write values to influxdb for testing grafana dashboard
-    influxdb_conn.writeTestValues2()
-
 def test4():
     ''' testing kurtosis and kurtogram analysis
 
@@ -402,7 +394,6 @@ def test9():
     # write dataframe back to influx database
     db1.write_points(pdf_read, 'TEST1')
 
-
 def test_yandy():
     """Instantiate the connection to the InfluxDB client."""
     user = ''
@@ -502,25 +493,261 @@ def test16():
 
 
 
+def test_mysql():
+    # # define database configuration parameters
+    # db_info = {}
+    # db_info.update({'host': "192.168.21.134"})
+    # db_info.update({'port': 3306})
+    # db_info.update({'user': "root"})
+    # db_info.update({'password': "sbrQp10"})
+    # db_info.update({'database': "data"})
+
+    # create an instance of DBmysql
+    db1 = DBmysql(Config.mysql)
+
+    # get the asset list
+    asset_list = db1.get_vib_asset_list()
+
+    # get the asset dictionary
+    asset_dic = db1.get_vib_asset_dic()
+
+    # close cursor and connection
+    db1.exit()
+
+    # print records
+    print(asset_list)
+    print(asset_dic)
+
+def test_influx():
+    # Initialization
+    DATABASE_NAME = 'VIB_DB'
+    ASSET_NAME = "VIB_SEN1"
+    _timestamp = '_timestamp'
+    X_EVTID = 'WF___X_EVTID'
+    X_EVT_CHG_ID = 'WF___X_EVT_CHG_ID'
+    X_FFT = 'WF___X_FFT'
+    X_FFT_RED = 'WF___X_FFT_RED'
+    X_FREQ = 'WF___X_FREQ'
+    X_FREQ_RED = 'WF___X_FREQ_RED'
+    X_TDW = 'WF___X_TDW'
+    X_TDW_RED = 'WF___X_TDW_RED'
+    Z_EVTID = 'WF___Z_EVTID'
+    Z_EVT_CHG_ID = 'WF___Z_EVT_CHG_ID'
+    Z_FFT = 'WF___Z_FFT'
+    Z_FFT_RED = 'WF___Z_FFT_RED'
+    Z_FREQ = 'WF___Z_FREQ'
+    Z_FREQ_RED = 'WF___Z_FREQ_RED'
+    Z_TDW = 'WF___Z_TDW'
+    Z_TDW_RED = 'WF___Z_TDW_RED'
+
+    # define database configuratin parameters
+    db_info = {}
+    db_info.update({'host': "192.168.21.134"})  #localhost, 192.168.1.118
+    db_info.update({'port': 8086})
+    db_info.update({'database': DATABASE_NAME})
+
+    # create an instance of DBinflux
+    db1 = DBinflux(config=db_info)
+
+    # sql = "select * from " + asset_name
+    sql = "select {}, {} from {} order by time".format(_timestamp, X_TDW, ASSET_NAME)
+    binds = {}
+
+    # Execute query
+    datasets_dic = db1.query(sql)
+
+    # Get pandas dataframe
+    pdf_wave = datasets_dic[ASSET_NAME]
+    pdf_wave.to_csv(path_or_buf='C://Users//cmolina//Desktop//pdf_wave.csv')
+    # print(pdf_wave)
+    print('TDW shape: {}'.format(pdf_wave.shape))
+
+    # create testing wave and spectrum
+    wave = thinkdsp.Wave(ys=pdf_wave[X_TDW], ts=np.linspace(0,1,100), framerate=100)
+    spectrum = fft_eng.get_spectrum(wave=wave, window='hanning')
+    spectrum_red = spectrum.copy()
+
+    # create dictionary to use on pandas dataframe creation
+    spec_dic = {X_FFT: spectrum.amps, X_FREQ: spectrum.fs,
+                X_FFT_RED: spectrum_red.amps, X_FREQ_RED: spectrum_red.fs}
+    # print(spec_dic)
+
+    # convert pandas dataframe
+    pdf_spec = pd.DataFrame(spec_dic, index=pdf_wave.index[:len(spectrum)])
+    # print(pdf_spec)
+    pdf_spec.to_csv(path_or_buf='C://Users//cmolina//Desktop//pdf_fft.csv')
+    print('FFT shape: {}'.format(pdf_spec.shape))
+
+    # write dataframe to influx database
+    db1.write_points(pdf=pdf_spec, meas=ASSET_NAME)
+
+    # prepare sql query
+    sql2 = "select {}, {}, {}, {} from {} order by time".format(_timestamp, X_TDW, X_FFT, X_FREQ, ASSET_NAME)
+
+    # query influx database
+    datasets_dic = db1.query(sql2)
+
+    # get the pandas dataframe
+    pdf_all = datasets_dic[ASSET_NAME]
+    pdf_all.to_csv(path_or_buf='C://Users//cmolina//Desktop//pdf_all.csv')
+    # print(pdf_all)
+    print('ALL shape {}'.format(pdf_all.shape))
+
+def write_influx_test_data():
+    # create a testing wave
+    wave = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=100)
+
+    # create an influxdb client
+    client = InfluxDBClient(**Config.influx)
+    _time = np.int64(time.time()*1000)
+
+    # Generating test data
+    for i in range(10):
+        count = 0
+        for k in wave.ys:
+            if count == 0:
+                points = [{
+                    "measurement": 'VIB_SEN1',
+                    "time": _time + count,
+                    "fields": {
+                        "WF___X_TDW": k,
+                        "WF___X_EVTID": str(_time),
+                        "WF___X_EVT_CHG_ID": str(_time),
+                        "WF___X_FFT": -1.0,
+                        "WF___Z_TDW": k,
+                        "WF___Z_EVTID": str(_time),
+                        "WF___Z_EVT_CHG_ID": str(_time),
+                        "WF___Z_FFT": -1.0
+                    }
+                }]
+                client.write_points(points)  #, time_precision='ms'
 
 
+            else:
+                points = [{
+                    "measurement": 'VIB_SEN1',
+                    "time": _time + count,
+                    "fields": {
+                        "WF___X_TDW": k,
+                        "WF___X_EVTID": str(_time),
+                        "WF___X_FFT": -1.0,
+                        "WF___Z_TDW": k,
+                        "WF___Z_EVTID": str(_time),
+                        "WF___Z_FFT": -1.0
+                    }
+                }]
+                client.write_points(points)  #, time_precision='ms'
+            count += 1
+        time.sleep(1)
+
+    client.close()
+
+def write_influx_test_data2():
+    ''' this did not work '''
+
+    # create time domain waveform
+    wave_acc = thinkdsp.SinSignal(freq=10, amp=1, offset=0).make_wave(duration=1, start=0, framerate=100)
+
+    event_id_list = ['eventid1'] * 100
+    event_id_chg_list = ['eventid1']
+    none99_list = [''] * 99
+    event_id_chg_list.extend(none99_list)
+
+    # create wave spectrum
+    spec_acc = fft_eng.get_spectrum(wave_acc)
+    wave_vel = fft_eng.integrate(wave_acc)
+
+    # create dictionaries
+    wave_acc_dic = {'WF___X_TDW': wave_acc.ys}
+    wave_vel_dic = {'WF___X_TDW_VEL': wave_vel.ys}
+    spec_acc_dic = {'WF___X_FREQ': spec_acc.fs, 'WF___X_FFT': spec_acc.amps}
+    event_id_dic = {'WF___X_EVTID': event_id_list}
+    event_id_chg_dic = {'WF___X_EVT_CHG_ID': event_id_chg_list}
+
+    # convert dictionaries to pandas dataframe
+    wave_acc_df = pd.DataFrame(wave_acc_dic)  # , index=None
+    wave_vel_df = pd.DataFrame(wave_vel_dic)  # , index=None
+    spec_acc_df = pd.DataFrame(spec_acc_dic)  # , index=None
+    event_id_df = pd.DataFrame(event_id_dic)  # , index=None
+    event_id_chg_df = pd.DataFrame(event_id_chg_dic)  # , index=None
+
+    # concatenate both dataframes into one dataframe
+    pdf = pd.concat([event_id_chg_df, event_id_df, wave_acc_df], axis=1)  # ignore_index=True,
+    # print(pdf)
+    # print(pdf.shape)
+
+    client = DataFrameClient(Config.influx)
+    client.write_points(dataframe=pdf, measurement='VIB_SEN1')
+    client.close()
+
+def read_influx_test_data():
+    # Initialization
+    DATABASE_NAME = 'VIB_DB'
+    ASSET_NAME = "VIB_SEN1"
+    _timestamp = '_timestamp'
+    X_EVTID = 'WF___X_EVTID'
+    X_EVT_CHG_ID = 'WF___X_EVT_CHG_ID'
+    X_FFT = 'WF___X_FFT'
+    X_FFT_RED = 'WF___X_FFT_RED'
+    X_FREQ = 'WF___X_FREQ'
+    X_FREQ_RED = 'WF___X_FREQ_RED'
+    X_TDW = 'WF___X_TDW'
+    X_TDW_RED = 'WF___X_TDW_RED'
+    Z_EVTID = 'WF___Z_EVTID'
+    Z_EVT_CHG_ID = 'WF___Z_EVT_CHG_ID'
+    Z_FFT = 'WF___Z_FFT'
+    Z_FFT_RED = 'WF___Z_FFT_RED'
+    Z_FREQ = 'WF___Z_FREQ'
+    Z_FREQ_RED = 'WF___Z_FREQ_RED'
+    Z_TDW = 'WF___Z_TDW'
+    Z_TDW_RED = 'WF___Z_TDW_RED'
+
+    X_EVTID1 = '2020-03-03 01:02:00.000000+00:00'
+
+    # create an instance of DBinflux
+    db1 = DBinflux(config=Config.influx)
+
+    # sql = "select * from " + ASSET_NAME
+    # sql = "select " + X_EVTID + " from " + ASSET_NAME
+    # sql = "select {}, {}, {} from {} order by time".format(X_TDW, X_EVTID, X_EVT_CHG_ID, ASSET_NAME)
+    # sql = "select {}, {}, {} from {} where WF___X_EVTID=$X_EVTID1;".format(X_TDW, X_EVTID, X_EVT_CHG_ID, ASSET_NAME)
+    sql = "select {}, {}, {} from {} where WF___X_FFT<>0;".format(X_TDW, X_EVTID, X_EVT_CHG_ID, ASSET_NAME)
+    # sql = "select {} from {} where {}=$X_EVTID1;".format(X_EVT_CHG_ID, ASSET_NAME, X_EVTID)
+    bind_params = {'X_EVTID1': X_EVTID1}
+
+    # Execute query
+    datasets_dic = db1.query(sql, bind_params)
+
+    # Get pandas dataframe
+    pdf_wave = datasets_dic[ASSET_NAME]
+    # pdf_wave.to_csv(path_or_buf='C://Users//cmolina//Desktop//pdf_wave.csv')
+    print(pdf_wave)
+    # print('TDW shape: {}'.format(pdf_wave.shape))
+    # print(pdf_wave.keys)
 
 
-
-
-
-
-
+#########################
+#     MAIN CODE
+#########################
 if __name__ == "__main__":
     '''execute only if run as a main script'''
-    print('testing ran as main!')
+    print('>>>>>>>>>>>>>>>>>>>>')
+    print('running testing as main script')
+    print('>>>>>>>>>>>>>>>>>>>>')
 
     # write_csv()
     # write_csv2()
     # test5()
     # test6()
-    test777()
+    # test777()
     # test8()
     # test9()
     # test_yandy()
     # test16()
+
+    # write data to MySQL
+    # test_mysql()
+
+    # testing influx
+    write_influx_test_data()
+    # read_influx_test_data()
