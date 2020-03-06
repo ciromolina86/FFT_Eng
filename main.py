@@ -126,7 +126,7 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
 
     return tdw_pdf
 
-def get_process_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
+def get_process_pdf(tdw_pdf, framerate, red_rate = 0.5, acc = True, window='hanning', axis='X'):
     """
     It returns the pandas data frame of the acceleration wave
     :param tdw_pdf: pandas dataframe
@@ -159,49 +159,51 @@ def get_process_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
 
     # if collecting acceleration
     if acc:
-        # TODO: acc_tdw = wave.copy()
+        acc_wave = wave.copy()
         vel_wave = fft_eng.integrate(wave)
-        vel_tdw = vel_wave.ys
-        acc_spectrum = fft_eng.get_spectrum(wave=wave, window=window)
+        acc_spectrum = fft_eng.get_spectrum(wave=acc_wave, window=window)
         vel_spectrum = fft_eng.get_spectrum(wave=vel_wave, window=window)
 
         # get reduced signal
-        # TODO
-        acc_tdw_red = get_signal_red_version(wave.ys)
+        acc_tdw_red = get_downsampled_data_ts(input_mtx_ts=acc_wave.ts, input_mtx=acc_wave.ys,
+                                             max_datapoints=red_rate, field_name=acceleration_tdw)
         acc_fft_red = get_signal_red_version(acc_spectrum.amps)
-        vel_tdw_red = get_signal_red_version(vel_tdw)
+        vel_tdw_red = get_downsampled_data_ts(input_mtx_ts=vel_wave.ts, input_mtx=vel_wave.ys,
+                                             max_datapoints=red_rate, field_name=velocity_tdw)
         vel_fft_red = get_signal_red_version(vel_spectrum.amps)
 
         # create dictionary to use on pandas data frame creation
         dic_list = [
             {acceleration_fft: acc_spectrum.amps},
-            {velocity_tdw: vel_tdw},
+            {acceleration_freq: acc_spectrum.fs},
+            {velocity_tdw: vel_wave.amps},
             {velocity_fft: vel_spectrum.amps},
 
             {acceleration_tdw_red: acc_tdw_red},
             {acceleration_fft_red: acc_fft_red},
             {velocity_tdw_red: vel_tdw_red},
-            {velocity_fft_red: vel_fft_red},
-            {acceleration_freq: acc_spectrum.fs}
+            {velocity_fft_red: vel_fft_red}
         ]
 
     # if collecting velocity
     else:
-        acc_wave = fft_eng.derivate(wave)
-        acc_tdw = acc_wave.ys
+        vel_wave = wave.copy()
+        acc_wave = fft_eng.derivate(vel_wave)
         acc_spectrum = fft_eng.get_spectrum(wave=acc_wave, window=window)
-        vel_spectrum = fft_eng.get_spectrum(wave=wave, window=window)
+        vel_spectrum = fft_eng.get_spectrum(wave=vel_wave, window=window)
 
         # get reduced signal
-        acc_tdw_red = get_signal_red_version(acc_tdw)
+        acc_tdw_red = get_downsampled_data_ts(input_mtx_ts=acc_wave.ts, input_mtx=acc_wave.ys,
+                                              max_datapoints=red_rate, field_name=acceleration_tdw)
         acc_fft_red = get_signal_red_version(acc_spectrum.amps)
-        vel_tdw_red = get_signal_red_version(wave.ys)
+        vel_tdw_red = get_downsampled_data_ts(input_mtx_ts=vel_wave.ts, input_mtx=vel_wave.ys,
+                                              max_datapoints=red_rate, field_name=velocity_tdw)
         vel_fft_red = get_signal_red_version(vel_spectrum.amps)
 
         # create list of dictionary to use on pandas data frame creation
         dic_list = [
             {velocity_fft: vel_spectrum.amps},
-            {acceleration_tdw: acc_tdw},
+            {acceleration_tdw: acc_wave},
             {acceleration_fft: acc_spectrum.amps},
 
             {acceleration_tdw_red: acc_tdw_red},
@@ -214,7 +216,7 @@ def get_process_pdf(tdw_pdf, framerate, acc = True, window='hanning', axis='X'):
     # Create list of pdf from list of dictionaries
 
     for d in dic_list:
-        for key, value in d.iteritems():
+        for key, value in d.items():
             final_pdf_list.append(pd.DataFrame(d, index=tdw_pdf.index[:len(value)]))
 
     return final_pdf_list
@@ -232,6 +234,7 @@ def pdf_to_influxdb(process_pdf_list, asset_name):
     for process_pdf in process_pdf_list:
         # write data frame to influx database
         db1.write_points(pdf=process_pdf, meas=asset_name)
+        print(process_pdf.keys())
 
 def process(asset_name, event_id, framerate, axis='X'):
     """
@@ -251,15 +254,25 @@ def process(asset_name, event_id, framerate, axis='X'):
     # write to influxdb all the pandas data frame in a provided list
     pdf_to_influxdb(process_pdf_list, asset_name)
 
-def get_signal_red_version(signal):
-    """
-    TODO
-    :param signal:
+def get_downsampled_data_ts(input_mtx_ts, input_mtx, max_datapoints, field_name):
+    '''DOWN-SAMPLING using Numpy matrix with timestamp
+
+    :param input_mtx_ts: matrix
+    :param input_mtx: matrix
+    :param max_datapoints: int
+    :param field_name: string
     :return:
-    """
+    '''
 
+    # Training Input Reduced for Overview using LTTB
+    row_count, column_count = fft_eng.get_col_and_rows_numpy_array(input_mtx)
+    downsampled_mtx, downsampled_mtx_ts = fft_eng.dataset_downsampling_lttb_ts(np, input_mtx, input_mtx_ts, max_datapoints,
+                                                                       row_count, column_count)
 
-    return signal
+    # create new pandas dataframe with downsampled data
+    dic_red = {'time': downsampled_mtx_ts, field_name: downsampled_mtx}
+
+    return dic_red
 
 def data_process(asset_name, event_id, axis='X'):
     # Initialization
@@ -338,6 +351,12 @@ def main():
     asset_list = []
     tags_ids_dic = {}
 
+    #=========================
+    # Downsampling Data Initialization
+    # =========================
+    max_points = {}
+    max_points.update({'WF___X_TDW':1000})
+
     # update config data the first time
     asset_list, asset_dic, tags_ids_dic = update_config_data()
     # print('asset_list >> {}'.format(asset_list))
@@ -381,7 +400,8 @@ def main():
                     framerate_id_str = str(id)
 
             # get real time sampling frequency value
-            framerate_ts, framerate_current_value = databases_conn.getinrtmatrix(framerate_id_str)
+            framerate_ts, framerate_current_value = databases_conn.getinrtmatrix(rt_redis_data, framerate_id_str)
+            # print('sampling frequency: {}'.format(framerate_current_value))
 
             # scan all axises for the current asset
             for axis in axis_list:
@@ -400,8 +420,8 @@ def main():
                     # break
 
         print('cycle time: {}'.format(np.int64(time.time()*1000)))
-        # wait for 30 second
-        time.sleep(30)
+        # wait for 10 second
+        time.sleep(10)
 
 
 

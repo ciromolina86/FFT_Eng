@@ -2,7 +2,6 @@ import json
 import time
 import numpy as np
 from redisdb import RedisDB
-# from redis import Redis
 
 def getinrtmatrix(intagsstr):
     # Local Initialization
