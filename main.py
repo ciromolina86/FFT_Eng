@@ -176,20 +176,23 @@ def get_precess_pdf(tdw_pdf, framerate, acc = true, window='hanning'):
     velocity_fft_red = 'WF___{}_FFT_V_RED'.format(axis)
     velocity_freq_red = 'WF___{}_FREQ_V_RED'.format(axis)
 
-    # create  acc_wave and spectrum
+    # create  wave from pdf
     wave = thinkdsp.Wave(ys=tdw_pdf[tdw], ts=np.linspace(0, 1, 100), framerate=framerate)
 
+    # if collecting acceleration
     if acc:
         vel_tdw = fft_eng.integrate(wave)
         vel_wave = thinkdsp.Wave(ys=vel_tdw, ts=np.linspace(0, 1, 100), framerate=framerate)
         acc_spectrum = fft_eng.get_spectrum(wave=wave, window=window)
         vel_spectrum = fft_eng.get_spectrum(wave=vel_wave, window=window)
+    # if collecting velocity
     else:
         acc_tdw = fft_eng.derivate(wave)
         acc_wave = thinkdsp.Wave(ys=acc_tdw, ts=np.linspace(0, 1, 100), framerate=framerate)
         acc_spectrum = fft_eng.get_spectrum(wave=acc_wave, window=window)
         vel_spectrum = fft_eng.get_spectrum(wave=wave, window=window)
 
+    # get reduced signal
     acc_tdw_red = get_signal_red_version(acc_wave.ys)
     acc_fft_red = get_signal_red_version(acc_spectrum.amps)
     vel_tdw_red = get_signal_red_version(vel_tdw)
