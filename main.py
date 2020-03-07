@@ -181,13 +181,13 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
     tdw_name = 'WF___{}_TDW'.format(axis)
     acc_tdw_name = 'WF___{}_TDW'.format(axis)
     acc_fft_name = 'WF___{}_FFT'.format(axis)
-    acc_freq_name = 'WF___{}_FREQ'.format(axis)
+    freq_name = 'WF___{}_FREQ'.format(axis)
     vel_fft_name = 'WF___{}_FFT_V'.format(axis)
     vel_tdw_name = 'WF___{}_TDW_V'.format(axis)
 
     acc_tdw_red_name = 'WF___{}_TDW_RED'.format(axis)
     acc_fft_red_name = 'WF___{}_FFT_RED'.format(axis)
-    acc_freq_red_name = 'WF___{}_FREQ_RED'.format(axis)
+    freq_red_name = 'WF___{}_FREQ_RED'.format(axis)
     vel_tdw_red_name = 'WF___{}_TDW_V_RED'.format(axis)
     vel_fft_red_name = 'WF___{}_FFT_V_RED'.format(axis)
 
@@ -203,32 +203,44 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
 
     # if collecting acceleration
     if acc:
+        # create acceleration and velocity waveform
         acc_tdw = tdw.copy()
         vel_tdw = fft_eng.integrate(tdw)
+
+        # create acceleration and velocity spectrum (FFT)
         acc_fft = fft_eng.get_spectrum(wave=acc_tdw, window=window)
         vel_fft = fft_eng.get_spectrum(wave=vel_tdw, window=window)
 
-        acc_tdw_pdf = pd.DataFrame({acc_tdw_name: acc_tdw.ys}, index=tdw_pdf.index)
-        vel_tdw_pdf = pd.DataFrame({vel_tdw_name: vel_tdw.ys}, index=tdw_pdf.index)
-        acc_fft_pdf = pd.DataFrame({acc_fft_name: acc_fft.amps, acc_freq_name: acc_fft.fs}, index=tdw_pdf.index[:len(acc_fft)])
-        vel_fft_pdf = pd.DataFrame({vel_fft_name: vel_fft.amps, acc_freq_name: vel_fft.fs}, index=tdw_pdf.index[:len(vel_fft)])
+        # create acceleration and velocity result time domain waveform pandas dataframe
+        # acc_tdw_pdf = pd.DataFrame({acc_tdw_name: acc_tdw.ys}, index=tdw_pdf.index)
+        vel_tdw_pdf = pd.DataFrame({vel_tdw_name: vel_tdw.ys},
+                                   index=tdw_pdf.index)
 
-        # get reduced signal
-        # acc_tdw_pdf_red = get_downsampled_data_ts(input_mtx_ts=acc_tdw_pdf.index,
-        #                                           input_mtx=acc_tdw_pdf[acc_tdw_name].values,
-        #                                           max_datapoints=50)  #red_rate*len(acc_tdw_pdf)
+        # create acceleration and velocity result spectrum (FFT) pandas dataframe
+        acc_fft_pdf = pd.DataFrame({acc_fft_name: acc_fft.amps, freq_name: acc_fft.fs},
+                                   index=tdw_pdf.index[:len(acc_fft)])
+        vel_fft_pdf = pd.DataFrame({vel_fft_name: vel_fft.amps, freq_name: vel_fft.fs},
+                                   index=tdw_pdf.index[:len(vel_fft)])
 
-        acc_fft_mtx_red = get_downsampled_data(input_mtx=acc_fft_pdf[[acc_fft_name, acc_freq_name]].values,
-                                               max_datapoints=50)
-        acc_fft_pdf_red = pd.DataFrame(acc_fft_mtx_red,
-                                       columns=[acc_fft_name,acc_freq_name],
-                                       index=tdw_pdf.index[:len(acc_fft_mtx_red)])
+        # create matrix of acceleration and velocity spectra to downsample
+        # shape = (rows = N, cols = 3)
+        fft_mtx = np.array([acc_fft_pdf[freq_name].values]).T
+        fft_mtx = np.append(fft_mtx, np.array([acc_fft_pdf[acc_fft_name].values]).T, axis=1)
+        fft_mtx = np.append(fft_mtx, np.array([vel_fft_pdf[vel_fft_name].values]).T, axis=1)
 
+        # get downsampled matrix of acceleration and velocity spectra
+        fft_mtx_red = get_downsampled_data(input_mtx=fft_mtx,
+                                           max_datapoints=75)
 
-    final_pdf_list = [tdw_pdf, vel_tdw_pdf, acc_fft_pdf_red]  #, acc_fft_pdf, vel_fft_pdf,acc_fft_pdf_red]
+        # create pandas dataframe from downsampled acceleration and velocity spectra
+        fft_pdf_red = pd.DataFrame(fft_mtx_red,
+                                   columns=[freq_red_name,
+                                            acc_fft_red_name,
+                                            vel_fft_red_name],
+                                   index=tdw_pdf.index[:len(fft_mtx_red)])
 
-
-    return final_pdf_list
+        # return list of pandas dataframe
+        return [tdw_pdf, acc_fft_pdf, vel_tdw_pdf, vel_fft_pdf, fft_pdf_red]
 
 def pdf_to_influxdb(process_pdf_list, asset_name):
     """

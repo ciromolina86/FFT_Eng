@@ -838,7 +838,7 @@ def write_influx_test_data():
     client = InfluxDBClient(**Config.influx)
 
     # Generating test data
-    for i in range(3):
+    for i in range(10):
         # print('>>> loop #1, iter #{}'.format(i))
         count = 0
         _time = np.int64(time.time() * 1000)
@@ -849,7 +849,7 @@ def write_influx_test_data():
             if count == 0:
 
                 points = [{
-                    "measurement": 'VIB_SEN2',
+                    "measurement": 'VIB_SEN1',
                     "time": _time + count,
                     "fields": {
                         "WF___X_TDW": k,
@@ -861,14 +861,29 @@ def write_influx_test_data():
                         "WF___Z_EVT_CHG_ID": str(_time),
                         "WF___Z_FFT": -1.0
                     }
-                }]
+                },
+                    {
+                        "measurement": 'VIB_SEN2',
+                        "time": _time + count,
+                        "fields": {
+                            "WF___X_TDW": k,
+                            "WF___X_EVTID": str(_time),
+                            "WF___X_EVT_CHG_ID": str(_time),
+                            "WF___X_FFT": -1.0,
+                            "WF___Z_TDW": k,
+                            "WF___Z_EVTID": str(_time),
+                            "WF___Z_EVT_CHG_ID": str(_time),
+                            "WF___Z_FFT": -1.0
+                        }
+                    }
+                ]
 
                 client.write_points(points)  #, time_precision='ms'
 
             else:
 
                 points = [{
-                    "measurement": 'VIB_SEN2',
+                    "measurement": 'VIB_SEN1',
                     "time": _time + count,
                     "fields": {
                         "WF___X_TDW": k,
@@ -878,14 +893,26 @@ def write_influx_test_data():
                         "WF___Z_EVTID": str(_time),
                         "WF___Z_FFT": -1.0
                     }
-                }]
-
+                },
+                    {
+                        "measurement": 'VIB_SEN2',
+                        "time": _time + count,
+                        "fields": {
+                            "WF___X_TDW": k,
+                            "WF___X_EVTID": str(_time),
+                            "WF___X_FFT": -1.0,
+                            "WF___Z_TDW": k,
+                            "WF___Z_EVTID": str(_time),
+                            "WF___Z_FFT": -1.0
+                        }
+                    }
+                ]
 
                 client.write_points(points)  #, time_precision='ms'
 
             count += 1
 
-        # time.sleep(1)
+        time.sleep(1)
 
     client.close()
 
