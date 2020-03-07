@@ -143,10 +143,11 @@ def get_downsampled_data_ts(input_mtx_ts, input_mtx, max_datapoints, field_name=
                                                                                max_datapoints,
                                                                                row_count, column_count)
 
-    # create new pandas dataframe with downsampled data
-    dic_red = {'time': downsampled_mtx_ts, field_name: downsampled_mtx}
+    # # create new pandas dataframe with downsampled data
+    # dic_red = {'time': downsampled_mtx_ts, field_name: downsampled_mtx}
 
-    return dic_red
+    # return downsampled data
+    return downsampled_mtx, downsampled_mtx_ts
 
 def get_downsampled_data(input_mtx, max_datapoints, field_name=''):
     '''DOWN-SAMPLING using Numpy matrix without timestamp
@@ -166,7 +167,7 @@ def get_downsampled_data(input_mtx, max_datapoints, field_name=''):
     # create new pandas dataframe with downsampled data
     # dic_red = {field_name: downsampled_mtx}
 
-    # return result matrix
+    # return downsampled data
     return downsampled_mtx
 
 def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hanning', axis='X'):
@@ -212,7 +213,7 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
         vel_fft = fft_eng.get_spectrum(wave=vel_tdw, window=window)
 
         # create acceleration and velocity result time domain waveform pandas dataframe
-        # acc_tdw_pdf = pd.DataFrame({acc_tdw_name: acc_tdw.ys}, index=tdw_pdf.index)
+        acc_tdw_pdf = pd.DataFrame({acc_tdw_name: acc_tdw.ys}, index=tdw_pdf.index)
         vel_tdw_pdf = pd.DataFrame({vel_tdw_name: vel_tdw.ys},
                                    index=tdw_pdf.index)
 
@@ -221,6 +222,36 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
                                    index=tdw_pdf.index[:len(acc_fft)])
         vel_fft_pdf = pd.DataFrame({vel_fft_name: vel_fft.amps, freq_name: vel_fft.fs},
                                    index=tdw_pdf.index[:len(vel_fft)])
+
+        '''============================================================================'''
+
+        # create matrix of acceleration and velocity time domain waveform to downsample
+        # shape = (rows = N, cols = 3)
+        tdw_mtx = np.array([acc_tdw_pdf[acc_tdw_name].values]).T
+        tdw_mtx = np.append(tdw_mtx, np.array([vel_tdw_pdf[vel_tdw_name].values]).T, axis=1)
+        # print(tdw_mtx.shape)
+
+        # create matrix of time to downsample
+        tdw_mtx_ts = np.array([acc_tdw_pdf.index], dtype=object).T  #[:,0]
+        # print(tdw_mtx_ts[:5])
+
+        # get downsampled matrix of acceleration and velocity time domain waveform
+        tdw_mtx_red, tdw_mtx_red_ts = get_downsampled_data_ts(input_mtx_ts=tdw_mtx_ts,
+                                                              input_mtx=tdw_mtx,
+                                                              max_datapoints=100)
+
+        # print('tdw_mtx_red: ', tdw_mtx_red.shape)
+        # print('tdw_mtx_red_ts: ', tdw_mtx_red_ts.shape)
+        # print('tdw_mtx_red_ts data: ', tdw_mtx_red_ts)
+        # print('DatetimeIndex data: ', pd.DatetimeIndex(np.array(tdw_mtx_red_ts)[:,0]))
+
+        # create pandas dataframe from downsampled acceleration and velocity spectra
+        tdw_pdf_red = pd.DataFrame(tdw_mtx_red,
+                                   columns=[acc_tdw_red_name, vel_tdw_red_name],
+                                   index=pd.DatetimeIndex(np.array(tdw_mtx_red_ts)[:, 0]))
+
+
+        '''============================================================================'''
 
         # create matrix of acceleration and velocity spectra to downsample
         # shape = (rows = N, cols = 3)
@@ -239,8 +270,10 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
                                             vel_fft_red_name],
                                    index=tdw_pdf.index[:len(fft_mtx_red)])
 
+        '''============================================================================'''
+
         # return list of pandas dataframe
-        return [tdw_pdf, acc_fft_pdf, vel_tdw_pdf, vel_fft_pdf, fft_pdf_red]
+        return [tdw_pdf, vel_tdw_pdf, tdw_pdf_red, acc_fft_pdf, vel_fft_pdf, fft_pdf_red]
 
 def pdf_to_influxdb(process_pdf_list, asset_name):
     """
