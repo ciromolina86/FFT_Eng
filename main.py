@@ -126,7 +126,50 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
 
     return tdw_pdf
 
-def get_process_pdf(tdw_pdf, framerate, red_rate = 0.5, acc = True, window='hanning', axis='X'):
+
+def get_downsampled_data_ts(input_mtx_ts, input_mtx, max_datapoints, field_name=''):
+    '''DOWN-SAMPLING using Numpy matrix with timestamp
+
+    :param input_mtx_ts: matrix
+    :param input_mtx: matrix
+    :param max_datapoints: int
+    :param field_name: string
+    :return:
+    '''
+
+    # Training Input Reduced for Overview using LTTB
+    row_count, column_count = fft_eng.get_col_and_rows_numpy_array(input_mtx)
+    downsampled_mtx, downsampled_mtx_ts = fft_eng.dataset_downsampling_lttb_ts(np, input_mtx, input_mtx_ts,
+                                                                               max_datapoints,
+                                                                               row_count, column_count)
+
+    # create new pandas dataframe with downsampled data
+    dic_red = {'time': downsampled_mtx_ts, field_name: downsampled_mtx}
+
+    return dic_red
+
+def get_downsampled_data(input_mtx, max_datapoints, field_name=''):
+    '''DOWN-SAMPLING using Numpy matrix without timestamp
+
+    :param input_mtx: matrix
+    :param max_datapoints: int
+    :param field_name: string
+    :return:
+    '''
+
+    # Training Input Reduced for Overview using LTTB
+    row_count, column_count = fft_eng.get_col_and_rows_numpy_array(input_mtx)
+
+    downsampled_mtx = fft_eng.dataset_downsampling_lttb(np, input_mtx, max_datapoints, row_count, column_count)
+
+    # print(pd.DataFrame(downsampled_mtx))
+    # create new pandas dataframe with downsampled data
+    # dic_red = {field_name: downsampled_mtx}
+
+    # return result matrix
+    return downsampled_mtx
+
+def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hanning', axis='X'):
     """
     It returns the pandas data frame of the acceleration wave
     :param tdw_pdf: pandas dataframe
@@ -134,90 +177,56 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 0.5, acc = True, window='hann
     :param window: string
     :return: pandas data frame
     """
-    tdw = 'WF___{}_TDW'.format(axis)
-    acceleration_tdw = 'WF___{}_TDW'.format(axis)
-    acceleration_fft = 'WF___{}_FFT'.format(axis)
-    acceleration_freq = 'WF___{}_FREQ'.format(axis)
-    velocity_fft = 'WF___{}_FFT_V'.format(axis)
-    velocity_tdw = 'WF___{}_TDW_V'.format(axis)
+    timestamp = 'time'
+    tdw_name = 'WF___{}_TDW'.format(axis)
+    acc_tdw_name = 'WF___{}_TDW'.format(axis)
+    acc_fft_name = 'WF___{}_FFT'.format(axis)
+    acc_freq_name = 'WF___{}_FREQ'.format(axis)
+    vel_fft_name = 'WF___{}_FFT_V'.format(axis)
+    vel_tdw_name = 'WF___{}_TDW_V'.format(axis)
 
-    acceleration_tdw_red = 'WF___{}_FFT_RED'.format(axis)
-    acceleration_fft_red = 'WF___{}_FFT_RED'.format(axis)
-    acceleration_freq_red = 'WF___{}_FREQ_RED'.format(axis)
-    velocity_tdw_red = 'WF___{}_TDW_V_RED'.format(axis)
-    velocity_fft_red = 'WF___{}_FFT_V_RED'.format(axis)
+    acc_tdw_red_name = 'WF___{}_TDW_RED'.format(axis)
+    acc_fft_red_name = 'WF___{}_FFT_RED'.format(axis)
+    acc_freq_red_name = 'WF___{}_FREQ_RED'.format(axis)
+    vel_tdw_red_name = 'WF___{}_TDW_V_RED'.format(axis)
+    vel_fft_red_name = 'WF___{}_FFT_V_RED'.format(axis)
 
     # init
     final_pdf_list = []
 
     # compute tdw duration (in time)
-    duration = len(tdw_pdf[tdw]) / framerate
-    N = len(tdw_pdf[tdw])
+    tdw_duration = len(tdw_pdf[tdw_name]) / framerate
+    tdw_N = len(tdw_pdf[tdw_name])
 
     # create  wave from pdf
-    wave = thinkdsp.Wave(ys=tdw_pdf[tdw], ts=np.linspace(0, duration, N), framerate=framerate)
+    tdw = thinkdsp.Wave(ys=tdw_pdf[tdw_name], ts=np.linspace(0, tdw_duration, tdw_N), framerate=framerate)
 
     # if collecting acceleration
     if acc:
-        acc_wave = wave.copy()
-        vel_wave = fft_eng.integrate(wave)
-        acc_spectrum = fft_eng.get_spectrum(wave=acc_wave, window=window)
-        vel_spectrum = fft_eng.get_spectrum(wave=vel_wave, window=window)
+        acc_tdw = tdw.copy()
+        vel_tdw = fft_eng.integrate(tdw)
+        acc_fft = fft_eng.get_spectrum(wave=acc_tdw, window=window)
+        vel_fft = fft_eng.get_spectrum(wave=vel_tdw, window=window)
+
+        acc_tdw_pdf = pd.DataFrame({acc_tdw_name: acc_tdw.ys}, index=tdw_pdf.index)
+        vel_tdw_pdf = pd.DataFrame({vel_tdw_name: vel_tdw.ys}, index=tdw_pdf.index)
+        acc_fft_pdf = pd.DataFrame({acc_fft_name: acc_fft.amps, acc_freq_name: acc_fft.fs}, index=tdw_pdf.index[:len(acc_fft)])
+        vel_fft_pdf = pd.DataFrame({vel_fft_name: vel_fft.amps, acc_freq_name: vel_fft.fs}, index=tdw_pdf.index[:len(vel_fft)])
 
         # get reduced signal
-        acc_tdw_red = get_downsampled_data_ts(input_mtx_ts=acc_wave.ts, input_mtx=acc_wave.ys,
-                                             max_datapoints=red_rate, field_name=acceleration_tdw)
-        acc_fft_red = get_signal_red_version(acc_spectrum.amps)
-        vel_tdw_red = get_downsampled_data_ts(input_mtx_ts=vel_wave.ts, input_mtx=vel_wave.ys,
-                                             max_datapoints=red_rate, field_name=velocity_tdw)
-        vel_fft_red = get_signal_red_version(vel_spectrum.amps)
+        # acc_tdw_pdf_red = get_downsampled_data_ts(input_mtx_ts=acc_tdw_pdf.index,
+        #                                           input_mtx=acc_tdw_pdf[acc_tdw_name].values,
+        #                                           max_datapoints=50)  #red_rate*len(acc_tdw_pdf)
 
-        # create dictionary to use on pandas data frame creation
-        dic_list = [
-            {acceleration_fft: acc_spectrum.amps},
-            {acceleration_freq: acc_spectrum.fs},
-            {velocity_tdw: vel_wave.amps},
-            {velocity_fft: vel_spectrum.amps},
+        acc_fft_mtx_red = get_downsampled_data(input_mtx=acc_fft_pdf[[acc_fft_name, acc_freq_name]].values,
+                                               max_datapoints=50)
+        acc_fft_pdf_red = pd.DataFrame(acc_fft_mtx_red,
+                                       columns=[acc_fft_name,acc_freq_name],
+                                       index=tdw_pdf.index[:len(acc_fft_mtx_red)])
 
-            {acceleration_tdw_red: acc_tdw_red},
-            {acceleration_fft_red: acc_fft_red},
-            {velocity_tdw_red: vel_tdw_red},
-            {velocity_fft_red: vel_fft_red}
-        ]
 
-    # if collecting velocity
-    else:
-        vel_wave = wave.copy()
-        acc_wave = fft_eng.derivate(vel_wave)
-        acc_spectrum = fft_eng.get_spectrum(wave=acc_wave, window=window)
-        vel_spectrum = fft_eng.get_spectrum(wave=vel_wave, window=window)
+    final_pdf_list = [tdw_pdf, vel_tdw_pdf, acc_fft_pdf_red]  #, acc_fft_pdf, vel_fft_pdf,acc_fft_pdf_red]
 
-        # get reduced signal
-        acc_tdw_red = get_downsampled_data_ts(input_mtx_ts=acc_wave.ts, input_mtx=acc_wave.ys,
-                                              max_datapoints=red_rate, field_name=acceleration_tdw)
-        acc_fft_red = get_signal_red_version(acc_spectrum.amps)
-        vel_tdw_red = get_downsampled_data_ts(input_mtx_ts=vel_wave.ts, input_mtx=vel_wave.ys,
-                                              max_datapoints=red_rate, field_name=velocity_tdw)
-        vel_fft_red = get_signal_red_version(vel_spectrum.amps)
-
-        # create list of dictionary to use on pandas data frame creation
-        dic_list = [
-            {velocity_fft: vel_spectrum.amps},
-            {acceleration_tdw: acc_wave},
-            {acceleration_fft: acc_spectrum.amps},
-
-            {acceleration_tdw_red: acc_tdw_red},
-            {acceleration_fft_red: acc_fft_red},
-            {velocity_tdw_red: vel_tdw_red},
-            {velocity_fft_red: vel_fft_red},
-            {acceleration_freq: acc_spectrum.fs}
-        ]
-
-    # Create list of pdf from list of dictionaries
-
-    for d in dic_list:
-        for key, value in d.items():
-            final_pdf_list.append(pd.DataFrame(d, index=tdw_pdf.index[:len(value)]))
 
     return final_pdf_list
 
@@ -234,7 +243,7 @@ def pdf_to_influxdb(process_pdf_list, asset_name):
     for process_pdf in process_pdf_list:
         # write data frame to influx database
         db1.write_points(pdf=process_pdf, meas=asset_name)
-        print(process_pdf.keys())
+        # print(process_pdf.keys())
 
 def process(asset_name, event_id, framerate, axis='X'):
     """
@@ -249,30 +258,10 @@ def process(asset_name, event_id, framerate, axis='X'):
     tdw_pdf = read_acc_tdw(asset_name, event_id, axis=axis)
 
     # Get a python data frame per column that we need as el list
-    process_pdf_list = get_process_pdf(tdw_pdf, framerate, window='hanning', axis=axis)
+    process_pdf_list = get_process_pdf(tdw_pdf, framerate, window='hanning', axis=axis, red_rate=1.0)
 
     # write to influxdb all the pandas data frame in a provided list
     pdf_to_influxdb(process_pdf_list, asset_name)
-
-def get_downsampled_data_ts(input_mtx_ts, input_mtx, max_datapoints, field_name):
-    '''DOWN-SAMPLING using Numpy matrix with timestamp
-
-    :param input_mtx_ts: matrix
-    :param input_mtx: matrix
-    :param max_datapoints: int
-    :param field_name: string
-    :return:
-    '''
-
-    # Training Input Reduced for Overview using LTTB
-    row_count, column_count = fft_eng.get_col_and_rows_numpy_array(input_mtx)
-    downsampled_mtx, downsampled_mtx_ts = fft_eng.dataset_downsampling_lttb_ts(np, input_mtx, input_mtx_ts, max_datapoints,
-                                                                       row_count, column_count)
-
-    # create new pandas dataframe with downsampled data
-    dic_red = {'time': downsampled_mtx_ts, field_name: downsampled_mtx}
-
-    return dic_red
 
 def data_process(asset_name, event_id, axis='X'):
     # Initialization
