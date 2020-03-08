@@ -214,8 +214,7 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
 
         # create acceleration and velocity result time domain waveform pandas dataframe
         acc_tdw_pdf = pd.DataFrame({acc_tdw_name: acc_tdw.ys}, index=tdw_pdf.index)
-        vel_tdw_pdf = pd.DataFrame({vel_tdw_name: vel_tdw.ys},
-                                   index=tdw_pdf.index)
+        vel_tdw_pdf = pd.DataFrame({vel_tdw_name: vel_tdw.ys}, index=tdw_pdf.index)
 
         # create acceleration and velocity result spectrum (FFT) pandas dataframe
         acc_fft_pdf = pd.DataFrame({acc_fft_name: acc_fft.amps, freq_name: acc_fft.fs},
@@ -232,13 +231,13 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
         # print(tdw_mtx.shape)
 
         # create matrix of time to downsample
-        tdw_mtx_ts = np.array([acc_tdw_pdf.index], dtype=object).T  #[:,0]
+        tdw_mtx_ts = np.array([acc_tdw_pdf.index], dtype=object).T
         # print(tdw_mtx_ts[:5])
 
         # get downsampled matrix of acceleration and velocity time domain waveform
         tdw_mtx_red, tdw_mtx_red_ts = get_downsampled_data_ts(input_mtx_ts=tdw_mtx_ts,
                                                               input_mtx=tdw_mtx,
-                                                              max_datapoints=100)
+                                                              max_datapoints=50)  #int(len(tdw_mtx)*red_rate)*rows
 
         # print('tdw_mtx_red: ', tdw_mtx_red.shape)
         # print('tdw_mtx_red_ts: ', tdw_mtx_red_ts.shape)
@@ -261,7 +260,7 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
 
         # get downsampled matrix of acceleration and velocity spectra
         fft_mtx_red = get_downsampled_data(input_mtx=fft_mtx,
-                                           max_datapoints=75)
+                                           max_datapoints=30)  #int(len(tdw_mtx)*red_rate)*rows
 
         # create pandas dataframe from downsampled acceleration and velocity spectra
         fft_pdf_red = pd.DataFrame(fft_mtx_red,
