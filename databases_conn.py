@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 
-# ******************* Dtaabases config class *******************************
+# ******************* Databases config class *******************************
 class Config:
     # define database configuration parameters
     mysql = {}
@@ -18,6 +18,144 @@ class Config:
     mysql.update({'database': "data"})
 
     influx = {'host': "192.168.21.134", 'port': 8086, 'username': "", 'password': "", 'database': "VIB_DB"}
+
+
+# ******************* SDE Vibration Model class *******************************
+class VibModel:
+
+    # define database connection
+    def __init__(self):
+        self.mysql_conn = DBmysql(info=Config.mysql)
+        self.model = self.get_model()
+
+    # get the list of assets for vibration assets
+    def get_asset_list(self):
+        '''
+
+        :return: an asset list like this: ['asset1', 'asset2', ...]
+        '''
+
+        # define empty list for assets
+        asset_list = []
+
+        # define sql query to get all the vibration assets
+        sql = 'SELECT processName ' \
+              'FROM config.rt_process ' \
+              'WHERE rt_process.processName LIKE "VIB_%"' \
+              'ORDER BY rt_process.processName ASC'
+
+        # query the database
+        assets = self.mysql_conn.query(sql)
+
+        # create the asset list
+        for asset, in assets:
+            asset_list.append(asset)
+
+        # return asset list
+        return asset_list
+
+    # get the list of groups for an asset
+    def get_group_list(self, asset):
+        '''
+
+        :return:an asset dictionary like this: ['group1', 'group2', ...]
+        '''
+
+        # define empty list for groups
+        group_list = []
+
+        # define sql query to get all the groups from an asset
+        sql = 'SELECT groupName ' \
+              'FROM config.rt_groups ' \
+              'INNER JOIN config.rt_process ON rt_groups.processID = rt_process.processID '\
+              'WHERE rt_process.processName = "{}"' \
+              'ORDER BY rt_groups.groupName ASC'.format(asset)
+
+        # query the database
+        groups = self.mysql_conn.query(sql)
+
+        # create the group list
+        for group, in groups:
+            group_list.append(group)
+
+        # return a group list for an asset
+        return group_list
+
+    # get the list of tags for an group
+    def get_tag_list(self, asset, group):
+        '''
+
+        :return:a tag list like this: ['tag1', 'tag2', ...]
+        '''
+
+        # define empty tag list
+        tag_list = []
+
+        # define sql query to get all the tags from a group
+        sql = 'SELECT tagName ' \
+              'FROM config.rt_tags_dic ' \
+              'INNER JOIN config.rt_groups ON config.rt_tags_dic.groupID = config.rt_groups.groupID ' \
+              'INNER JOIN config.rt_process ON config.rt_groups.processID = config.rt_process.processID ' \
+              'WHERE config.rt_process.processName = "{}"' \
+              'AND config.rt_groups.groupName = "{}"'.format(asset, group)
+
+        # query the database
+        tags = self.mysql_conn.query(sql)
+
+        # create the tag list
+        for tag, in tags:
+            tag_list.append(tag, )
+
+        # return a tag list for an group
+        return tag_list
+
+    def get_tag_id_list(self, asset, group):
+        '''
+
+        :return: the internalTagID for a tag like this: 100
+        '''
+
+        # define empty (tag, id) list
+        tag_id_list = []
+
+        # define sql query to get all the tags from a group
+        sql = 'SELECT tagName, internalTagID ' \
+              'FROM config.rt_tags_dic ' \
+              'INNER JOIN config.rt_groups ON config.rt_tags_dic.groupID = config.rt_groups.groupID ' \
+              'INNER JOIN config.rt_process ON config.rt_groups.processID = config.rt_process.processID ' \
+              'WHERE config.rt_process.processName = "{}"' \
+              'AND config.rt_groups.groupName = "{}"'.format(asset, group)
+
+        # query the database
+        tag_ids = self.mysql_conn.query(sql)
+
+        for _tag, _id in tag_ids:
+            tag_id_list.append((_tag, _id))
+
+        # return a dictionary with tag: internalTagID pairs
+        return tag_id_list
+
+    # get the vibration assets model
+    def get_model(self):
+
+        # initialize model dictionary
+        model_dic = {}
+
+        # format the model into a dictionary of dictionaries
+        for asset in model.get_asset_list():
+            # print(asset)
+            model_dic.update({asset: {}})
+
+            for group in model.get_group_list(asset):
+                # print('\t' + group)
+                model_dic[asset].update({group: {}})
+
+                for _tag, _id in model.get_tag_id_list(asset, group):
+                    # print('\t\t' + '{}, {}'.format(_tag, _id))
+                    model_dic[asset][group].update({_tag:_id})
+
+        # return the complete assets dictionary
+        return model_dic
 
 
 # ******************* MySQL Database class *******************************
@@ -133,10 +271,10 @@ class DBmysql:
         for asset in assets:
             # define sql query to get all the groups and tags from vibration assets
             sql = 'SELECT groupName, tagName, internalTagID ' \
-                   'FROM config.rt_tags_dic ' \
-                   'INNER JOIN config.rt_groups ON rt_tags_dic.groupID = rt_groups.groupID ' \
-                   'INNER JOIN config.rt_process ON rt_groups.processID = rt_process.processID ' \
-                   'WHERE rt_process.processName = "{}"'.format(asset)
+                  'FROM config.rt_tags_dic ' \
+                  'INNER JOIN config.rt_groups ON rt_tags_dic.groupID = rt_groups.groupID ' \
+                  'INNER JOIN config.rt_process ON rt_groups.processID = rt_process.processID ' \
+                  'WHERE rt_process.processName = "{}"'.format(asset)
 
             # query the database
             groups_tags = self.query(sql)
@@ -305,3 +443,20 @@ if __name__ == "__main__":
     print('==================================')
     print('databases_conn ran as main script!')
     print('==================================')
+
+    model = VibModel()
+
+    # for asset in model.get_asset_list():
+    #     print(asset)
+    #
+    #     for group in model.get_group_list(asset):
+    #         print('\t'+group)
+    #
+    #         for _tag, _id in model.get_tag_id_list(asset, group):
+    #             print('\t\t'+'{}, {}'.format(_tag, _id))
+
+    print(model.get_model())
+
+
+
+
