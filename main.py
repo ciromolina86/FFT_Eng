@@ -1,5 +1,3 @@
-'''================================================'''
-'''import useful modules'''
 import matplotlib.pyplot as plt
 from ThinkX import thinkdsp
 from ThinkX import thinkplot
@@ -38,6 +36,7 @@ def update_config_data():
     # return config data
     return asset_list, asset_dic, tags_ids_dic
 
+
 def check_for_new_tdw(asset, axis):
     """
     Get last two event_changes
@@ -65,8 +64,8 @@ def check_for_new_tdw(asset, axis):
     wf_event_id = "WF___EVTID"
 
     # query to get the first two event ids of a time domain waveform without fft
-    sql = "SELECT {} FROM (SELECT {}, {} FROM {} FILL(-999.99) ) WHERE ({} = -999.99 AND {} <> '-999.99')  ORDER BY time".format(
-        select_field, where_field, select_field, asset, where_field, select_field)
+    sql = "SELECT {} FROM (SELECT {}, {} FROM {} FILL(-999.99) ) WHERE ({} = -999.99 AND {} <> '-999.99')  ORDER BY time".format(select_field, where_field, select_field, asset,
+                                                                                                                                 where_field, select_field)
     print("*******************")
     print(sql)
 
@@ -92,6 +91,7 @@ def check_for_new_tdw(asset, axis):
 
     # return trigger and first event id
     return p_trigger, even_change_id
+
 
 def read_acc_tdw(asset_name, event_id, axis='X'):
     """
@@ -152,6 +152,7 @@ def get_downsampled_data_ts(input_mtx_ts, input_mtx, max_datapoints, field_name=
     # return downsampled data
     return downsampled_mtx, downsampled_mtx_ts
 
+
 def get_downsampled_data(input_mtx, max_datapoints, field_name=''):
     '''DOWN-SAMPLING using Numpy matrix without timestamp
 
@@ -172,6 +173,7 @@ def get_downsampled_data(input_mtx, max_datapoints, field_name=''):
 
     # return downsampled data
     return downsampled_mtx
+
 
 def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hanning', axis='X'):
     """
@@ -301,6 +303,7 @@ def pdf_to_influxdb(process_pdf_list, asset_name):
         db1.write_points(pdf=process_pdf, meas=asset_name)
         # print(process_pdf.keys())
 
+
 def process(asset_name, event_id, framerate, axis='X'):
     """
     Process data
@@ -318,6 +321,7 @@ def process(asset_name, event_id, framerate, axis='X'):
 
     # write to influxdb all the pandas data frame in a provided list
     pdf_to_influxdb(process_pdf_list, asset_name)
+
 
 def data_process(asset_name, event_id, axis='X'):
     # Initialization
@@ -361,6 +365,7 @@ def data_process(asset_name, event_id, axis='X'):
     # print('>>>>>>> spectrum dataframe: {}'.format(pdf_spec))
     print('>>>>>>> data_process done')
 
+
 def get_axis_list(asset_name):
     """
 
@@ -373,6 +378,7 @@ def get_axis_list(asset_name):
     # return axis list
     return axis_list
 
+
 def init():
     '''
 
@@ -381,6 +387,7 @@ def init():
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
     print('>>>>>>>>>>>> running INIT! ')
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+
 
 def main():
     ''' execute main code '''

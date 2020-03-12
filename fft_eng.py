@@ -9,6 +9,7 @@ import json
 # from scipy.stats import kurtosis
 import lttb
 
+
 def read_sde_tag(query='0'):
     ''' read latest value of sde tag
 
@@ -20,6 +21,7 @@ def read_sde_tag(query='0'):
     tag = np.random.random_sample()
 
     return tag
+
 
 def read_sde_tdw(tag='vrms', start=0, n=8192):
     ''' Read an array of values store on the SDE as a time series
@@ -45,6 +47,7 @@ def read_sde_tdw(tag='vrms', start=0, n=8192):
         # tdw[i] = read_sde_tag(query=query)
         tdw[i] = np.random.random_sample()
 
+
 def read_wave(sde_tag='vrms',n_tdw=8192, fs=20000):
     # read time domain waveform from SDE
     # tdw = n_tdw values from sde_tag
@@ -63,6 +66,7 @@ def read_wave(sde_tag='vrms',n_tdw=8192, fs=20000):
     # returns the result wave
     return thinkdsp.Wave(ys=tdw, ts=t, framerate=fs)
 
+
 def read_wave2(sde_tag='vrms', n_tdw=8192, fs=20000):
     # read time domain waveform from SDE
     # tdw = n_tdw values from sde_tag
@@ -79,6 +83,7 @@ def read_wave2(sde_tag='vrms', n_tdw=8192, fs=20000):
     # returns the result wave
     return thinkdsp.Wave(ys=tdw, ts=t, framerate=fs)
 
+
 def get_wave(spectrum):
     '''Reconstructing wave back from spectrum object
 
@@ -94,6 +99,7 @@ def get_wave(spectrum):
 
     # returns the reconstructed wave
     return s.make_wave()
+
 
 def get_spectrum(wave, window='', beta=6):
     ''' Get a spectrum from a given wave
@@ -145,6 +151,7 @@ def get_spectrum(wave, window='', beta=6):
     # returns a thinkdsp.Spectrum object
     return result
 
+
 def get_spectrum2(wave, window='', normalize=False, amp=1.0, unbias=False, beta=6):
     # unbiases the signal
     if unbias == True:
@@ -194,6 +201,7 @@ def get_spectrum2(wave, window='', normalize=False, amp=1.0, unbias=False, beta=
     result.hs /= (N-1)
 
     return result
+
 
 def demodulate_steps(wave):
     '''
@@ -279,6 +287,7 @@ def demodulate_steps(wave):
     # show plot
     plt.show()
 
+
 def demodulation_wave(wave, fc1=400, fc2=800):
     ''' computes the envelope of a wave (fc1<freq<fc2)
 
@@ -314,6 +323,7 @@ def demodulation_wave(wave, fc1=400, fc2=800):
     # returns the result
     return result
 
+
 def demodulation_spectrum(spectrum, fc1=400, fc2=800):
     ''' computes the envelope of a spectrum (fc1<freq<fc2)
 
@@ -346,6 +356,7 @@ def demodulation_spectrum(spectrum, fc1=400, fc2=800):
     # returns the result
     return result
 
+
 def spectrum_to_dict(s):
     ''' returns a given dictionary of a spectrum object
 
@@ -364,6 +375,7 @@ def spectrum_to_dict(s):
 
     return result
 
+
 def wave_to_dict(w):
     ''' returns a given dictionary of a wave object
 
@@ -379,6 +391,7 @@ def wave_to_dict(w):
 
     return result
 
+
 def diff_wave(w0, w1):
     '''Computes and returns the  difference between waves w1-w0.
     Restriction: Both waves need to be similar(same sampling frequency, same length)
@@ -391,6 +404,7 @@ def diff_wave(w0, w1):
     # returns result wave
     return thinkdsp.Wave(ys=np.abs(w1.ys-w0.ys), ts=w0.ts, framerate=w0.framerate)
 
+
 def diff_spectrum(s0, s1):
     '''Computes and returns the  difference between spectra s1-s0.
     Restriction: Both waves need to be similar(same sampling frequency, same length)
@@ -402,6 +416,7 @@ def diff_spectrum(s0, s1):
 
     # returns result spectrum
     return thinkdsp.Spectrum(hs=np.abs(s1.amps-s0.amps), fs=s0.fs, framerate=s0.framerate)
+
 
 def integrate(w):
     ''' Integrate time domain wave
@@ -434,6 +449,7 @@ def integrate(w):
 
     # returns the new integrated wave
     return y
+
 
 def derivate(w):
     ''' Derivate time domain wave
@@ -473,6 +489,7 @@ def derivate(w):
 #     # plots the kurtogram
 #     print('plotting kurtogram')
 
+
 def get_col_and_rows_numpy_array(numpy_array):
     """
 
@@ -494,6 +511,7 @@ def get_col_and_rows_numpy_array(numpy_array):
         print("Error: Wrong Input Matrix Dimension")
 
     return numpy_array_row, numpy_array_col
+
 
 def dataset_downsampling_lttb_ts(np, data_v_in, data_ts_in, overview_max_datapoints, row_count_in, column_count_in):
     """
@@ -556,6 +574,7 @@ def dataset_downsampling_lttb_ts(np, data_v_in, data_ts_in, overview_max_datapoi
     data_ts_out = np.asmatrix(data_ts_out)
 
     return data_v_out, data_ts_out
+
 
 def dataset_downsampling_lttb(np, data_v_in, overview_max_datapoints, row_count_in, column_count_in):
     """

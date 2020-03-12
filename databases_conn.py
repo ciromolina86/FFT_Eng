@@ -11,13 +11,15 @@ import pandas as pd
 class Config:
     # define database configuration parameters
     mysql = {}
-    mysql.update({'host': "192.168.21.134"})
+    #mysql.update({'host': "192.168.21.134"})
+    mysql.update({'host': "192.168.1.152"})
     mysql.update({'port': 3306})
     mysql.update({'user': "root"})
     mysql.update({'password': "sbrQp10"})
     mysql.update({'database': "data"})
 
-    influx = {'host': "192.168.21.134", 'port': 8086, 'username': "", 'password': "", 'database': "VIB_DB"}
+    #influx = {'host': "192.168.21.134", 'port': 8086, 'username': "", 'password': "", 'database': "VIB_DB"}
+    influx = {'host': "192.168.1.152", 'port': 8086, 'username': "", 'password': "", 'database': "sorba_demo___com"}
 
 
 # ******************* SDE Vibration Model class *******************************
