@@ -62,8 +62,10 @@ def check_for_new_tdw(asset, axis):
     where_field = "WF___{}_FFT".format(axis)
 
     # query to get the first two event ids of a time domain waveform without fft
-    sql = "SELECT {} FROM (SELECT {}, {} FROM {} FILL(-999.99) ) WHERE ({} = -999.99 AND {} <> '-999.99')  ORDER BY time".format(select_field, where_field, select_field, asset,
-                                                                                                                                 where_field, select_field)
+    sql = "SELECT {} " \
+          "FROM (SELECT {}, {} FROM {} FILL(-999.99) ) " \
+          "WHERE ({} = -999.99 AND {} <> '-999.99')  " \
+          "ORDER BY time".format(select_field, where_field, select_field, asset, where_field, select_field)
 
     # Execute query
     datasets_dic = db1.query(sql)
@@ -145,7 +147,7 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
 
     # sql = "select * from " + asset_name
     sql = "select {}, {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, wf_evt_id, asset_name, wf_evt_id, evt_id)
-    #print(sql)
+    # print(sql)
     binds = {}
 
     # Execute query
@@ -230,6 +232,9 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
     vel_tdw_red_name = 'WF___{}_TDW_V_RED'.format(axis)
     vel_fft_red_name = 'WF___{}_FFT_V_RED'.format(axis)
     evtid_red_name = 'WF___EVTID_RED'
+
+    # Fill with zero data read from influx with NaN values
+    tdw_pdf[tdw_name].fillna(0, inplace=True)
 
     # compute tdw duration (in time)
     tdw_duration = len(tdw_pdf[tdw_name]) / framerate
