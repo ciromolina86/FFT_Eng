@@ -1076,11 +1076,20 @@ def test_vibmodel_class():
     from databases_conn import VibModel
 
     mod1 = VibModel()
-    print(mod1.model_mysql)
+    # print(mod1.model_mysql)
+
+    while True:
+        # del mod1
+        # mod1 = VibModel()
+        # mod1.update_model()
+        print(mod1.model_mysql)
+        print(mod1.get_asset_list())
+        time.sleep(10)
+
     # print(mod1.model_influx)
-    print(mod1.model_mysql.keys())
-    for k in mod1.model_mysql.keys():
-        print(k)
+    # print(mod1.model_mysql.keys())
+    # for k in mod1.model_mysql.keys():
+    #     print(k)
 
 
 
