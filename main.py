@@ -312,9 +312,9 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
                                index=tdw_pdf.index[:len(fft_mtx_red)])
 
     # add the event id reduced column to the result pandas dataframe
-    fft_pdf_red = pd.concat([fft_pdf_red,
-                             {evtid_red_name: tdw_pdf[evtid_name][:len(fft_pdf_red)]}],
-                            axis=1)
+    temp_pdf = pd.DataFrame({evtid_red_name: tdw_pdf[evtid_name][:len(fft_pdf_red)]},
+                            index=tdw_pdf.index[:len(fft_mtx_red)])
+    fft_pdf_red = pd.concat([fft_pdf_red, temp_pdf], axis=1)
 
     '''============================================================================'''
 
