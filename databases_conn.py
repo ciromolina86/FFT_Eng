@@ -105,7 +105,7 @@ class VibModel:
 
         # create the tag list
         for tag, in tags:
-            tag_list.append(tag, )
+            tag_list.append(tag)
 
         # return a tag list for an group
         return tag_list
@@ -143,16 +143,13 @@ class VibModel:
         model_dic = {}
 
         # format the model into a dictionary of dictionaries
-        for asset in model.get_asset_list():
-            # print(asset)
+        for asset in self.get_asset_list():
             model_dic.update({asset: {}})
 
-            for group in model.get_group_list(asset):
-                # print('\t' + group)
+            for group in self.get_group_list(asset):
                 model_dic[asset].update({group: {}})
 
-                for _tag, _id in model.get_tag_id_list(asset, group):
-                    # print('\t\t' + '{}, {}'.format(_tag, _id))
+                for _tag, _id in self.get_tag_id_list(asset, group):
                     model_dic[asset][group].update({_tag:_id})
 
         # return the complete assets dictionary
@@ -304,11 +301,6 @@ class DBinflux:
     def query(self, sql, bind_params={}):
         return self.client.query(query=sql, bind_params=bind_params)
 
-    def read_tdw(self, meas):
-        # TODO
-        pdf = 0
-        return pdf
-
     def write_points(self, pdf, meas):
         self.client.write_points(dataframe=pdf, measurement=meas, time_precision='ms')
 
@@ -444,18 +436,6 @@ if __name__ == "__main__":
     print('databases_conn ran as main script!')
     print('==================================')
 
-    model = VibModel()
-
-    # for asset in model.get_asset_list():
-    #     print(asset)
-    #
-    #     for group in model.get_group_list(asset):
-    #         print('\t'+group)
-    #
-    #         for _tag, _id in model.get_tag_id_list(asset, group):
-    #             print('\t\t'+'{}, {}'.format(_tag, _id))
-
-    print(model.get_model())
 
 
 

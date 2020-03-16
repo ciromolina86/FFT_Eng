@@ -144,7 +144,7 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
     db1 = databases_conn.DBinflux(config=Config.influx)
 
     # sql = "select * from " + asset_name
-    sql = "select {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, asset_name, wf_evt_id, evt_id)
+    sql = "select {}, {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, wf_evt_id, asset_name, wf_evt_id, evt_id)
     #print(sql)
     binds = {}
 
@@ -222,15 +222,14 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
     freq_name = 'WF___FREQ'.format(axis)
     vel_fft_name = 'WF___{}_FFT_V'.format(axis)
     vel_tdw_name = 'WF___{}_TDW_V'.format(axis)
+    evtid_name = 'WF___EVTID'
 
     acc_tdw_red_name = 'WF___{}_TDW_RED'.format(axis)
     acc_fft_red_name = 'WF___{}_FFT_RED'.format(axis)
     freq_red_name = 'WF___FREQ_RED'.format(axis)
     vel_tdw_red_name = 'WF___{}_TDW_V_RED'.format(axis)
     vel_fft_red_name = 'WF___{}_FFT_V_RED'.format(axis)
-
-    # init
-    final_pdf_list = []
+    evtid_red_name = 'WF___EVTID_RED'
 
     # compute tdw duration (in time)
     tdw_duration = len(tdw_pdf[tdw_name]) / framerate
@@ -258,9 +257,13 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
     vel_tdw_pdf = pd.DataFrame({vel_tdw_name: vel_tdw.ys}, index=tdw_pdf.index)
 
     # create acceleration and velocity result spectrum (FFT) pandas dataframe
-    acc_fft_pdf = pd.DataFrame({acc_fft_name: acc_fft.amps, freq_name: acc_fft.fs},
+    acc_fft_pdf = pd.DataFrame({acc_fft_name: acc_fft.amps,
+                                freq_name: acc_fft.fs,
+                                evtid_name: tdw_pdf[evtid_name][:len(acc_fft)]},
                                index=tdw_pdf.index[:len(acc_fft)])
-    vel_fft_pdf = pd.DataFrame({vel_fft_name: vel_fft.amps, freq_name: vel_fft.fs},
+    vel_fft_pdf = pd.DataFrame({vel_fft_name: vel_fft.amps,
+                                freq_name: vel_fft.fs,
+                                evtid_name: tdw_pdf[evtid_name][:len(vel_fft)]},
                                index=tdw_pdf.index[:len(vel_fft)])
 
     '''============================================================================'''
@@ -297,15 +300,19 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
     fft_mtx = np.array([acc_fft_pdf[freq_name].values]).T
     fft_mtx = np.append(fft_mtx, np.array([acc_fft_pdf[acc_fft_name].values]).T, axis=1)
     fft_mtx = np.append(fft_mtx, np.array([vel_fft_pdf[vel_fft_name].values]).T, axis=1)
+    fft_mtx = np.append(fft_mtx, np.array([acc_fft_pdf[evtid_name].values]).T, axis=1)
 
     # Get number of rows and columns
     fft_mtx_row_count, fft_mtx_column_count = fft_eng.get_col_and_rows_numpy_array(fft_mtx)
 
     # get downsampled matrix of acceleration and velocity spectra
-    fft_mtx_red = get_downsampled_data(input_mtx=fft_mtx, max_datapoints=int(fft_mtx_row_count*fft_mtx_column_count*red_rate))
+    fft_mtx_red = get_downsampled_data(input_mtx=fft_mtx,
+                                       max_datapoints=int(fft_mtx_row_count*fft_mtx_column_count*red_rate))
 
     # create pandas dataframe from downsampled acceleration and velocity spectra
-    fft_pdf_red = pd.DataFrame(fft_mtx_red, columns=[freq_red_name, acc_fft_red_name, vel_fft_red_name], index=tdw_pdf.index[:len(fft_mtx_red)])
+    fft_pdf_red = pd.DataFrame(fft_mtx_red,
+                               columns=[freq_red_name, acc_fft_red_name, vel_fft_red_name, evtid_red_name],
+                               index=tdw_pdf.index[:len(fft_mtx_red)])
 
     '''============================================================================'''
 
