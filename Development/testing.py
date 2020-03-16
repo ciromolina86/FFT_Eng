@@ -1050,6 +1050,7 @@ def test_read_rt_value_using_model():
     # Initialization
     rt_redis_data = RedisDB()
     db1 = VibModel()
+    print(db1.model)
 
     # Connect to Redis DB
     rt_redis_data.open_db()
@@ -1060,18 +1061,26 @@ def test_read_rt_value_using_model():
     # Sensor tags ids: example: tags_ids_str = "460,461,462"
     tags_ids_str = str(db1.model['VIB_SEN1']['BAND']['X_B1_PV']['internalTagID'])
 
-    while True:
-        # Read ts and values
-        tags_timestamp, tags_current_value = getinrtmatrix(rt_redis_data, tags_ids_str)
-        print("###########################################")
-        print("TAGS TS: %s" % tags_timestamp)
-        print("TAGS VALUES: %s" % tags_current_value)
-        print("###########################################")
+    # while True:
+    #     # Read ts and values
+    #     tags_timestamp, tags_current_value = getinrtmatrix(rt_redis_data, tags_ids_str)
+    #     print("###########################################")
+    #     print("TAGS TS: %s" % tags_timestamp)
+    #     print("TAGS VALUES: %s" % tags_current_value)
+    #     print("###########################################")
+    #
+    #     # Sleep
+    #     time.sleep(1)
 
-        # Sleep
-        time.sleep(1)
+def test_vibmodel_class():
+    from databases_conn import VibModel
 
-
+    mod1 = VibModel()
+    print(mod1.model_mysql)
+    # print(mod1.model_influx)
+    print(mod1.model_mysql.keys())
+    for k in mod1.model_mysql.keys():
+        print(k)
 
 
 
@@ -1184,4 +1193,5 @@ if __name__ == "__main__":
     # write_influx_test_data()
     # read_influx_test_data()
 
-    test_read_rt_value_using_model()
+    # test_read_rt_value_using_model()
+    test_vibmodel_class()
