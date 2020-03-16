@@ -11,15 +11,14 @@ import pandas as pd
 class Config:
     # define database configuration parameters
     mysql = {}
-    #mysql.update({'host': "192.168.21.134"})
-    mysql.update({'host': "192.168.1.152"})
+    mysql.update({'host': "127.0.0.1"})
     mysql.update({'port': 3306})
     mysql.update({'user': "root"})
     mysql.update({'password': "sbrQp10"})
-    mysql.update({'database': "data"})
+    mysql.update({'database': "config"})
 
     #influx = {'host': "192.168.21.134", 'port': 8086, 'username': "", 'password': "", 'database': "VIB_DB"}
-    influx = {'host': "192.168.1.152", 'port': 8086, 'username': "", 'password': "", 'database': "sorba_demo___com"}
+    influx = {'host': "127.0.0.1", 'port': 8086, 'username': "", 'password': "", 'database': "sorba_sde"}
 
 
 # ******************* SDE Vibration Model class *******************************
@@ -207,13 +206,12 @@ class DBmysql:
         asset_list = []
 
         # define sql query to get all the vibration assets
-        sql = 'SELECT processName ' \
-               'FROM config.rt_process ' \
-               'WHERE rt_process.processName LIKE "VIB_%"' \
-               'ORDER BY rt_process.processName ASC'
+        sql = 'SELECT processName FROM config.rt_process WHERE rt_process.processName LIKE "VIB_%" ORDER BY rt_process.processName ASC'
 
         # query the database
         assets = self.query(sql)
+        print(assets)
+
 
         # create the asset list
         for asset, in assets:
@@ -312,7 +310,7 @@ class DBinflux:
         return pdf
 
     def write_points(self, pdf, meas):
-        self.client.write_points(dataframe=pdf, measurement=meas)
+        self.client.write_points(dataframe=pdf, measurement=meas, time_precision='ms')
 
 
 # ******************* getinrtmatrix Function *******************************

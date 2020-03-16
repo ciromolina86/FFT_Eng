@@ -51,9 +51,8 @@ def check_for_new_tdw(asset, axis):
     print('>>>>>>>>>>>> process_trigger')
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
 
-    # Initialize trigger in False
-    p_trigger = False
-    even_change_id = 0
+    # Initialization
+    event_chg_id_tmp = ''
 
     # create influxdb object
     db1 = DBinflux(config=Config.influx)
@@ -61,13 +60,10 @@ def check_for_new_tdw(asset, axis):
     # Build the field name from the axis (X or Z)
     select_field = "WF___EVT_CHG_ID"
     where_field = "WF___{}_FFT".format(axis)
-    wf_event_id = "WF___EVTID"
 
     # query to get the first two event ids of a time domain waveform without fft
     sql = "SELECT {} FROM (SELECT {}, {} FROM {} FILL(-999.99) ) WHERE ({} = -999.99 AND {} <> '-999.99')  ORDER BY time".format(select_field, where_field, select_field, asset,
                                                                                                                                  where_field, select_field)
-    print("*******************")
-    print(sql)
 
     # Execute query
     datasets_dic = db1.query(sql)
@@ -81,16 +77,46 @@ def check_for_new_tdw(asset, axis):
     # if there is at least one whole waveform
     # set trigger and copy the first whole waveform
     if rows > 1:
+        # Perform validation
+        for row_index in range(rows):
+            # Get tmp event_change_id
+            event_chg_id_tmp = datasets_pdf[select_field][row_index]
+
+            # Build the query main parameters
+            select_field1 = "WF___EVT_CHG_ID"
+            select_field2 = "WF___EVTID"
+            where_field = "WF___EVT_CHG_ID"
+
+            # query to get the WF___EVTID base on WF___EVT_CHG_ID and compare (both values must be the same)
+            sql_validation = "SELECT {}, {} FROM {} WHERE {} = \'{}\'".format(select_field1, select_field2, asset, where_field, event_chg_id_tmp)
+
+            # Execute query
+            datasets_dic_validation = db1.query(sql_validation)
+
+            # get the pandas dataframe out of the query result
+            datasets_pdf_validation = datasets_dic_validation[asset]
+
+            # Get WF___EVT_CHG_ID and WF___EVTID from dataframe
+            wf_event_chg_id_tmp = datasets_pdf_validation[select_field1].values
+            wf_event_id_tmp = datasets_pdf_validation[select_field2].values
+
+            # If WF___EVT_CHG_ID and WF___EVTID matched, validation process was met for the current Waveform
+            if wf_event_chg_id_tmp == wf_event_id_tmp:
+                # Validation met
+                break
+
+        # Set p_trigger and event_chg_id
         p_trigger = True
-        even_change_id = datasets_pdf[select_field][0]
+        event_chg_id = event_chg_id_tmp
         print('>>>>>> New waveform <<<<<<<<<')
     else:
+        # Set p_trigger and event_chg_id
         p_trigger = False
-        even_change_id = ''
+        event_chg_id = ''
         print('>>>>>> No changes <<<<<<<<<')
 
     # return trigger and first event id
-    return p_trigger, even_change_id
+    return p_trigger, event_chg_id
 
 
 def read_acc_tdw(asset_name, event_id, axis='X'):
@@ -108,8 +134,8 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
     _timestamp = 'time'
     fft = 'WF___{}_FFT'.format(axis)
     fft_red = 'WF___{}_FFT_RED'.format(axis)
-    freq = 'WF___{}_FREQ'.format(axis)
-    freq_red = 'WF___{}_FREQ_RED'.format(axis)
+    freq = 'WF___FREQ'.format(axis)
+    freq_red = 'WF___FREQ_RED'.format(axis)
     tdw = 'WF___{}_TDW'.format(axis)
     wf_evt_id = 'WF___EVTID'
     evt_id = "'{}'".format(event_id)
@@ -119,10 +145,12 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
 
     # sql = "select * from " + asset_name
     sql = "select {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, asset_name, wf_evt_id, evt_id)
+    #print(sql)
     binds = {}
 
     # Execute query
     datasets_dic = db1.query(sql)
+    #print(datasets_dic)
 
     # Get pandas data frame
     tdw_pdf = datasets_dic[asset_name]
@@ -162,9 +190,10 @@ def get_downsampled_data(input_mtx, max_datapoints, field_name=''):
     :return:
     '''
 
-    # Training Input Reduced for Overview using LTTB
+    # Get number of rows and columns
     row_count, column_count = fft_eng.get_col_and_rows_numpy_array(input_mtx)
 
+    # Training Input Reduced for Overview using LTTB
     downsampled_mtx = fft_eng.dataset_downsampling_lttb(np, input_mtx, max_datapoints, row_count, column_count)
 
     # print(pd.DataFrame(downsampled_mtx))
@@ -175,25 +204,28 @@ def get_downsampled_data(input_mtx, max_datapoints, field_name=''):
     return downsampled_mtx
 
 
-def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hanning', axis='X'):
+def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning', axis='X'):
     """
     It returns the pandas data frame of the acceleration wave
     :param tdw_pdf: pandas dataframe
     :param framerate: real
+    :param red_rate:
+    :param acc:
     :param window: string
+    :param axis:
     :return: pandas data frame
     """
     timestamp = 'time'
     tdw_name = 'WF___{}_TDW'.format(axis)
     acc_tdw_name = 'WF___{}_TDW'.format(axis)
     acc_fft_name = 'WF___{}_FFT'.format(axis)
-    freq_name = 'WF___{}_FREQ'.format(axis)
+    freq_name = 'WF___FREQ'.format(axis)
     vel_fft_name = 'WF___{}_FFT_V'.format(axis)
     vel_tdw_name = 'WF___{}_TDW_V'.format(axis)
 
     acc_tdw_red_name = 'WF___{}_TDW_RED'.format(axis)
     acc_fft_red_name = 'WF___{}_FFT_RED'.format(axis)
-    freq_red_name = 'WF___{}_FREQ_RED'.format(axis)
+    freq_red_name = 'WF___FREQ_RED'.format(axis)
     vel_tdw_red_name = 'WF___{}_TDW_V_RED'.format(axis)
     vel_fft_red_name = 'WF___{}_FFT_V_RED'.format(axis)
 
@@ -232,7 +264,6 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
                                index=tdw_pdf.index[:len(vel_fft)])
 
     '''============================================================================'''
-
     # create matrix of acceleration and velocity time domain waveform to downsample
     # shape = (rows = N, cols = 3)
     tdw_mtx = np.array([acc_tdw_pdf[acc_tdw_name].values]).T
@@ -243,20 +274,20 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
     tdw_mtx_ts = np.array([acc_tdw_pdf.index], dtype=object).T
     # print(tdw_mtx_ts[:5])
 
+    # Get number of rows and columns
+    tdw_mtx_row_count, tdw_mtx_column_count = fft_eng.get_col_and_rows_numpy_array(tdw_mtx)
+
     # get downsampled matrix of acceleration and velocity time domain waveform
     tdw_mtx_red, tdw_mtx_red_ts = get_downsampled_data_ts(input_mtx_ts=tdw_mtx_ts,
                                                           input_mtx=tdw_mtx,
-                                                          max_datapoints=50)  #int(len(tdw_mtx)*red_rate)*rows
+                                                          max_datapoints=int(tdw_mtx_row_count*tdw_mtx_column_count*red_rate))
 
     # print('tdw_mtx_red: ', tdw_mtx_red.shape)
     # print('tdw_mtx_red_ts: ', tdw_mtx_red_ts.shape)
     # print('tdw_mtx_red_ts data: ', tdw_mtx_red_ts)
     # print('DatetimeIndex data: ', pd.DatetimeIndex(np.array(tdw_mtx_red_ts)[:,0]))
-
     # create pandas dataframe from downsampled acceleration and velocity spectra
-    tdw_pdf_red = pd.DataFrame(tdw_mtx_red,
-                               columns=[acc_tdw_red_name, vel_tdw_red_name],
-                               index=pd.DatetimeIndex(np.array(tdw_mtx_red_ts)[:, 0]))
+    tdw_pdf_red = pd.DataFrame(tdw_mtx_red, columns=[acc_tdw_red_name, vel_tdw_red_name], index=pd.DatetimeIndex(np.array(tdw_mtx_red_ts)[:, 0]))
 
 
     '''============================================================================'''
@@ -267,16 +298,14 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
     fft_mtx = np.append(fft_mtx, np.array([acc_fft_pdf[acc_fft_name].values]).T, axis=1)
     fft_mtx = np.append(fft_mtx, np.array([vel_fft_pdf[vel_fft_name].values]).T, axis=1)
 
+    # Get number of rows and columns
+    fft_mtx_row_count, fft_mtx_column_count = fft_eng.get_col_and_rows_numpy_array(fft_mtx)
+
     # get downsampled matrix of acceleration and velocity spectra
-    fft_mtx_red = get_downsampled_data(input_mtx=fft_mtx,
-                                       max_datapoints=30)  #int(len(tdw_mtx)*red_rate)*rows
+    fft_mtx_red = get_downsampled_data(input_mtx=fft_mtx, max_datapoints=int(fft_mtx_row_count*fft_mtx_column_count*red_rate))
 
     # create pandas dataframe from downsampled acceleration and velocity spectra
-    fft_pdf_red = pd.DataFrame(fft_mtx_red,
-                               columns=[freq_red_name,
-                                        acc_fft_red_name,
-                                        vel_fft_red_name],
-                               index=tdw_pdf.index[:len(fft_mtx_red)])
+    fft_pdf_red = pd.DataFrame(fft_mtx_red, columns=[freq_red_name, acc_fft_red_name, vel_fft_red_name], index=tdw_pdf.index[:len(fft_mtx_red)])
 
     '''============================================================================'''
 
@@ -291,7 +320,7 @@ def get_process_pdf(tdw_pdf, framerate, red_rate = 1.0, acc = True, window='hann
 def pdf_to_influxdb(process_pdf_list, asset_name):
     """
     It writes the data frame to Influxdb
-    :param process_pdf: list of pandas dataframe
+    :param process_pdf_list: list of pandas dataframe
     :param asset_name: string
     :return:
     """
@@ -317,7 +346,7 @@ def process(asset_name, event_id, framerate, axis='X'):
     tdw_pdf = read_acc_tdw(asset_name, event_id, axis=axis)
 
     # Get a python data frame per column that we need as el list
-    process_pdf_list = get_process_pdf(tdw_pdf, framerate, window='hanning', axis=axis, red_rate=1.0)
+    process_pdf_list = get_process_pdf(tdw_pdf, framerate, window='hanning', axis=axis, red_rate=0.1)
 
     # write to influxdb all the pandas data frame in a provided list
     pdf_to_influxdb(process_pdf_list, asset_name)
@@ -329,10 +358,10 @@ def data_process(asset_name, event_id, axis='X'):
     _timestamp = 'time'
     fft = 'WF___{}_FFT'.format(axis)
     fft_red = 'WF___{}_FFT_RED'.format(axis)
-    freq = 'WF___{}_FREQ'.format(axis)
-    freq_red = 'WF___{}_FREQ_RED'.format(axis)
+    freq = 'WF___FREQ'.format(axis)
+    freq_red = 'WF___FREQ_RED'.format(axis)
     tdw = 'WF___{}_TDW'.format(axis)
-    wf_evt_id = 'WF___{}_EVTID'.format(axis)
+    wf_evt_id = 'WF___EVTID'.format(axis)
     evt_id = "'{}'".format(event_id)
 
     # create an instance of DBinflux
@@ -407,7 +436,7 @@ def main():
     # Downsampling Data Initialization
     # =========================
     max_points = {}
-    max_points.update({'WF___X_TDW':1000})
+    max_points.update({'WF___X_TDW': 1000})
 
     # update config data the first time
     asset_list, asset_dic, tags_ids_dic = update_config_data()
@@ -415,7 +444,7 @@ def main():
     # print('asset_dic >> {}'.format(asset_dic))
     # print('tags_ids_dic >> {}'.format(tags_ids_dic))
 
-    #=========================
+    # =========================
     # Redis DB Initialization
     # =========================
     rt_redis_data = RedisDB()
@@ -429,7 +458,7 @@ def main():
         # update real time data
         # Read Apply changes status (Reload Status) from Redis
         reload_status = "0"  #databases_conn.redis_get_value("rt_control:reload:fft")
-        # print("APPLY CHANGES STATUS: %s" % reload_status)
+        print("APPLY CHANGES STATUS: %s" % reload_status)
 
         # if "Apply Changes" is set
         if reload_status == "1":
@@ -447,34 +476,44 @@ def main():
             axis_list = get_axis_list(asset_name=asset)
 
             # get sampling frequency internalTagID
-            for tag, id in tags_ids_dic.get(asset):
-                if tag == 'CFG___FS':
-                    framerate_id_str = str(id)
+            for tag_name, tag_id in tags_ids_dic.get(asset):
+                if tag_name == 'CFG___FS':
+                    framerate_id_str = str(tag_id)
 
             # get real time sampling frequency value
             framerate_ts, framerate_current_value = databases_conn.getinrtmatrix(rt_redis_data, framerate_id_str)
+            # print('framerate_id_str: {}'.format(framerate_id_str))
             # print('sampling frequency: {}'.format(framerate_current_value))
+            # print('sampling frequency: {}'.format(type(framerate_current_value)))
 
-            # scan all axises for the current asset
-            for axis in axis_list:
+            # Check if Sample Frequency is not None
+            if (framerate_current_value is None) or (framerate_current_value == 0):
+                print("[WARN] There is not sample frequency defined (None or 0)")
 
-                # check for new time domain waveforms without processing
-                trigger, even_change_id = check_for_new_tdw(asset=asset, axis=axis)
+            else:
+                # scan all axises for the current asset
+                for axis in axis_list:
 
-                # if a new time domain waveform is ready to process
-                if trigger:
-                    # Run data process function to get the FFT of the TDW for the event change ID
-                    # data_process(asset_name=asset, event_id=even_change_id, axis=axis)
+                    # check for new time domain waveforms without processing
+                    trigger, even_change_id = check_for_new_tdw(asset=asset, axis=axis)
 
-                    # Data Processing
-                    process(asset_name=asset, event_id=even_change_id, framerate=framerate_current_value, axis=axis)
-                    # print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
-                    # break
+                    # if a new time domain waveform is ready to process
+                    if trigger:
+                        # Run data process function to get the FFT of the TDW for the event change ID
+                        # data_process(asset_name=asset, event_id=even_change_id, axis=axis)
+
+                        # Data Processing
+                        print('asset: {}'.format(asset))
+                        print('even_change_id: {}'.format(even_change_id))
+                        print('framerate_current_value: {}'.format(framerate_current_value))
+                        print('axis: {}'.format(axis))
+                        process(asset_name=asset, event_id=even_change_id, framerate=framerate_current_value, axis=axis)
+                        # print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
+                        # break
 
         print('cycle time: {}'.format(np.int64(time.time()*1000)))
         # wait for 10 second
         time.sleep(10)
-
 
 
 '''================================================'''
