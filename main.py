@@ -13,6 +13,7 @@ import databases_conn
 from databases_conn import Config
 from databases_conn import DBinflux
 from databases_conn import DBmysql
+from databases_conn import VibModel
 from redisdb import RedisDB
 
 
@@ -132,7 +133,6 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
     """
 
     # Initialization
-
     _timestamp = 'time'
     fft = 'WF___{}_FFT'.format(axis)
     fft_red = 'WF___{}_FFT_RED'.format(axis)
@@ -147,8 +147,6 @@ def read_acc_tdw(asset_name, event_id, axis='X'):
 
     # sql = "select * from " + asset_name
     sql = "select {}, {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, wf_evt_id, asset_name, wf_evt_id, evt_id)
-    # print(sql)
-    binds = {}
 
     # Execute query
     datasets_dic = db1.query(sql)
@@ -176,9 +174,6 @@ def get_downsampled_data_ts(input_mtx_ts, input_mtx, max_datapoints, field_name=
                                                                                max_datapoints,
                                                                                row_count, column_count)
 
-    # # create new pandas dataframe with downsampled data
-    # dic_red = {'time': downsampled_mtx_ts, field_name: downsampled_mtx}
-
     # return downsampled data
     return downsampled_mtx, downsampled_mtx_ts
 
@@ -197,10 +192,6 @@ def get_downsampled_data(input_mtx, max_datapoints, field_name=''):
 
     # Training Input Reduced for Overview using LTTB
     downsampled_mtx = fft_eng.dataset_downsampling_lttb(np, input_mtx, max_datapoints, row_count, column_count)
-
-    # print(pd.DataFrame(downsampled_mtx))
-    # create new pandas dataframe with downsampled data
-    # dic_red = {field_name: downsampled_mtx}
 
     # return downsampled data
     return downsampled_mtx
@@ -274,11 +265,9 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
     # shape = (rows = N, cols = 3)
     tdw_mtx = np.array([acc_tdw_pdf[acc_tdw_name].values]).T
     tdw_mtx = np.append(tdw_mtx, np.array([vel_tdw_pdf[vel_tdw_name].values]).T, axis=1)
-    # print(tdw_mtx.shape)
 
     # create matrix of time to downsample
     tdw_mtx_ts = np.array([acc_tdw_pdf.index], dtype=object).T
-    # print(tdw_mtx_ts[:5])
 
     # Get number of rows and columns
     tdw_mtx_row_count, tdw_mtx_column_count = fft_eng.get_col_and_rows_numpy_array(tdw_mtx)
@@ -288,10 +277,6 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
                                                           input_mtx=tdw_mtx,
                                                           max_datapoints=int(tdw_mtx_row_count*tdw_mtx_column_count*red_rate))
 
-    # print('tdw_mtx_red: ', tdw_mtx_red.shape)
-    # print('tdw_mtx_red_ts: ', tdw_mtx_red_ts.shape)
-    # print('tdw_mtx_red_ts data: ', tdw_mtx_red_ts)
-    # print('DatetimeIndex data: ', pd.DatetimeIndex(np.array(tdw_mtx_red_ts)[:,0]))
     # create pandas dataframe from downsampled acceleration and velocity spectra
     tdw_pdf_red = pd.DataFrame(tdw_mtx_red, columns=[acc_tdw_red_name, vel_tdw_red_name], index=pd.DatetimeIndex(np.array(tdw_mtx_red_ts)[:, 0]))
 
@@ -324,7 +309,6 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
     '''============================================================================'''
 
     # return list of pandas dataframe
-    # return [tdw_pdf, vel_tdw_pdf, tdw_pdf_red, acc_fft_pdf, vel_fft_pdf, fft_pdf_red]
     if acc:
         return [vel_tdw_pdf, tdw_pdf_red, acc_fft_pdf, vel_fft_pdf, fft_pdf_red]
     else:
@@ -366,49 +350,6 @@ def process(asset_name, event_id, framerate, axis='X'):
     pdf_to_influxdb(process_pdf_list, asset_name)
 
 
-def data_process(asset_name, event_id, axis='X'):
-    # Initialization
-
-    _timestamp = 'time'
-    fft = 'WF___{}_FFT'.format(axis)
-    fft_red = 'WF___{}_FFT_RED'.format(axis)
-    freq = 'WF___FREQ'.format(axis)
-    freq_red = 'WF___FREQ_RED'.format(axis)
-    tdw = 'WF___{}_TDW'.format(axis)
-    wf_evt_id = 'WF___EVTID'.format(axis)
-    evt_id = "'{}'".format(event_id)
-
-    # create an instance of DBinflux
-    db1 = databases_conn.DBinflux(config=Config.influx)
-
-    # sql = "select * from " + asset_name
-    sql = "select {}, {} from {} where {} = {} order by time".format(_timestamp, tdw, asset_name, wf_evt_id, evt_id)
-    binds = {}
-
-    # Execute query
-    datasets_dic = db1.query(sql)
-
-    # Get pandas data frame
-    pdf_wave = datasets_dic[asset_name]
-
-    # create  wave and spectrum
-    wave = thinkdsp.Wave(ys=pdf_wave[tdw], ts=np.linspace(0, 1, 100), framerate=100)
-    spectrum = fft_eng.get_spectrum(wave=wave, window='hanning')
-    spectrum_red = spectrum.copy()
-
-    # create dictionary to use on pandas data frame creation
-    spec_dic = {fft: spectrum.amps, freq: spectrum.fs,
-                fft_red: spectrum_red.amps, freq_red: spectrum_red.fs}
-
-    # convert pandas dataframe
-    pdf_spec = pd.DataFrame(spec_dic, index=pdf_wave.index[:len(spectrum)])
-
-    # write dataframe to influxdb
-    db1.write_points(pdf=pdf_spec, meas=asset_name)
-    # print('>>>>>>> spectrum dataframe: {}'.format(pdf_spec))
-    print('>>>>>>> data_process done')
-
-
 def get_axis_list(asset_name):
     """
 
@@ -422,16 +363,6 @@ def get_axis_list(asset_name):
     return axis_list
 
 
-def init():
-    '''
-
-    :return:
-    '''
-    print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-    print('>>>>>>>>>>>> running INIT! ')
-    print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-
-
 def main():
     ''' execute main code '''
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
@@ -441,10 +372,7 @@ def main():
     #=========================
     # Config Data Initialization
     # =========================
-    # creating global variables
-    asset_dic = {}
-    asset_list = []
-    tags_ids_dic = {}
+    vib_model = VibModel()
 
     #=========================
     # Downsampling Data Initialization
@@ -452,11 +380,8 @@ def main():
     max_points = {}
     max_points.update({'WF___X_TDW': 1000})
 
-    # update config data the first time
-    asset_list, asset_dic, tags_ids_dic = update_config_data()
-    # print('asset_list >> {}'.format(asset_list))
-    # print('asset_dic >> {}'.format(asset_dic))
-    # print('tags_ids_dic >> {}'.format(tags_ids_dic))
+    # Get vibration config model
+    config_model = vib_model.model_mysql
 
     # =========================
     # Redis DB Initialization
@@ -467,8 +392,6 @@ def main():
     rt_redis_data.open_db()
 
     while True:
-        # print('>>>>>>>>>>>> while true cycle')
-
         # update real time data
         # Read Apply changes status (Reload Status) from Redis
         reload_status = "0"  #databases_conn.redis_get_value("rt_control:reload:fft")
@@ -476,29 +399,24 @@ def main():
 
         # if "Apply Changes" is set
         if reload_status == "1":
-            # update config data once again
-            asset_list, asset_dic, tags_ids_dic = update_config_data()
+            # Update vibration config model
+            vib_model.update_model()
 
             # Reset Apply Changes flag
-            # databases_conn.redis_set_value("rt_control:reload:fft", str(0))
+            databases_conn.redis_set_value("rt_control:reload:fft", str(0))
             print("RESETTING APPLY CHANGES FLAG")
 
         # scan all assets for the current database
-        for asset in asset_list:
+        for asset in config_model.keys():
             
             # Get axis list
             axis_list = get_axis_list(asset_name=asset)
 
             # get sampling frequency internalTagID
-            for tag_name, tag_id in tags_ids_dic.get(asset):
-                if tag_name == 'CFG___FS':
-                    framerate_id_str = str(tag_id)
+            framerate_id_str = str(config_model[asset]['CFG']['FS']['internalTagID'])
 
             # get real time sampling frequency value
             framerate_ts, framerate_current_value = databases_conn.getinrtmatrix(rt_redis_data, framerate_id_str)
-            # print('framerate_id_str: {}'.format(framerate_id_str))
-            # print('sampling frequency: {}'.format(framerate_current_value))
-            # print('sampling frequency: {}'.format(type(framerate_current_value)))
 
             # Check if Sample Frequency is not None
             if (framerate_current_value is None) or (framerate_current_value == 0):
@@ -513,19 +431,16 @@ def main():
 
                     # if a new time domain waveform is ready to process
                     if trigger:
-                        # Run data process function to get the FFT of the TDW for the event change ID
-                        # data_process(asset_name=asset, event_id=even_change_id, axis=axis)
-
-                        # Data Processing
+                         # Data Processing
                         print('asset: {}'.format(asset))
                         print('even_change_id: {}'.format(even_change_id))
                         print('framerate_current_value: {}'.format(framerate_current_value))
                         print('axis: {}'.format(axis))
                         process(asset_name=asset, event_id=even_change_id, framerate=framerate_current_value, axis=axis)
-                        # print('>>>>>> let"s go processing \tasset: {}, axis: {}'.format(asset, axis))
-                        # break
 
+        # print actual time in milliseconds
         print('cycle time: {}'.format(np.int64(time.time()*1000)))
+
         # wait for 10 second
         time.sleep(10)
 
