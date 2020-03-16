@@ -1023,6 +1023,66 @@ def test_downsamplig():
 
         return final_pdf_list
 
+def test_vib_model_object():
+
+    from databases_conn import VibModel
+
+    model = VibModel()
+    print(model.get_model())
+
+    # for asset in model.get_asset_list():
+    #     print(asset)
+    #
+    #     for group in model.get_group_list(asset):
+    #         print('\t'+group)
+    #
+    #         for _tag, _id in model.get_tag_id_list(asset, group):
+    #             print('\t\t'+'{}, {}'.format(_tag, _id))
+
+def test_read_rt_value_using_model():
+    from redisdb import RedisDB
+    from databases_conn import VibModel
+    from databases_conn import getinrtmatrix
+
+    ################################################################################################
+    # MAIN CODE
+    ################################################################################################
+    # Initialization
+    rt_redis_data = RedisDB()
+    db1 = VibModel()
+    print(db1.model)
+
+    # Connect to Redis DB
+    rt_redis_data.open_db()
+
+    ################################################################################################
+    # READ TAG VALUES
+    ################################################################################################
+    # Sensor tags ids: example: tags_ids_str = "460,461,462"
+    tags_ids_str = str(db1.model['VIB_SEN1']['BAND']['X_B1_PV']['internalTagID'])
+
+    # while True:
+    #     # Read ts and values
+    #     tags_timestamp, tags_current_value = getinrtmatrix(rt_redis_data, tags_ids_str)
+    #     print("###########################################")
+    #     print("TAGS TS: %s" % tags_timestamp)
+    #     print("TAGS VALUES: %s" % tags_current_value)
+    #     print("###########################################")
+    #
+    #     # Sleep
+    #     time.sleep(1)
+
+def test_vibmodel_class():
+    from databases_conn import VibModel
+
+    mod1 = VibModel()
+    print(mod1.model_mysql)
+    # print(mod1.model_influx)
+    print(mod1.model_mysql.keys())
+    for k in mod1.model_mysql.keys():
+        print(k)
+
+
 
 # def write_influx_test_data2():
 #     ''' this did not work '''
@@ -1130,5 +1190,8 @@ if __name__ == "__main__":
     # test_mysql()
 
     # testing influx
-    write_influx_test_data()
+    # write_influx_test_data()
     # read_influx_test_data()
+
+    # test_read_rt_value_using_model()
+    test_vibmodel_class()
