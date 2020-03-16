@@ -27,7 +27,16 @@ class VibModel:
     # define database connection
     def __init__(self):
         self.mysql_conn = DBmysql(info=Config.mysql)
-        self.model = self.get_model()
+        self._model_mysql = self.get_model_mysql()
+        self._model_influx = self.get_model_influx()
+
+    @property
+    def model_mysql(self):
+        return self._model_mysql
+
+    @property
+    def model_influx(self):
+        return self._model_influx
 
     # get the list of assets for vibration assets
     def get_asset_list(self):
@@ -36,7 +45,7 @@ class VibModel:
         :return: an asset list like this: ['asset1', 'asset2', ...]
         '''
 
-        # define empty list for assets
+        # initialize assets list
         asset_list = []
 
         # define sql query to get all the vibration assets
@@ -50,6 +59,7 @@ class VibModel:
 
         # create the asset list
         for asset, in assets:
+            # append assets to the list
             asset_list.append(asset)
 
         # return asset list
@@ -62,13 +72,13 @@ class VibModel:
         :return:an asset dictionary like this: ['group1', 'group2', ...]
         '''
 
-        # define empty list for groups
+        # initialize groups list
         group_list = []
 
         # define sql query to get all the groups from an asset
         sql = 'SELECT groupName ' \
               'FROM config.rt_groups ' \
-              'INNER JOIN config.rt_process ON rt_groups.processID = rt_process.processID '\
+              'INNER JOIN config.rt_process ON rt_groups.processID = rt_process.processID ' \
               'WHERE rt_process.processName = "{}"' \
               'ORDER BY rt_groups.groupName ASC'.format(asset)
 
@@ -77,6 +87,7 @@ class VibModel:
 
         # create the group list
         for group, in groups:
+            # append groups to the list
             group_list.append(group)
 
         # return a group list for an asset
@@ -89,7 +100,7 @@ class VibModel:
         :return:a tag list like this: ['tag1', 'tag2', ...]
         '''
 
-        # define empty tag list
+        # initialize tags list
         tag_list = []
 
         # define sql query to get all the tags from a group
@@ -105,6 +116,7 @@ class VibModel:
 
         # create the tag list
         for tag, in tags:
+            # append tags to the list
             tag_list.append(tag)
 
         # return a tag list for an group
@@ -113,10 +125,10 @@ class VibModel:
     def get_tag_id_list(self, asset, group):
         '''
 
-        :return: the internalTagID for a tag like this: 100
+        :return: a tag, id list like this: [(tag1, id1), (tag2, id2), ...]
         '''
 
-        # define empty (tag, id) list
+        # initialize (tag,id) tuple list
         tag_id_list = []
 
         # define sql query to get all the tags from a group
@@ -131,30 +143,68 @@ class VibModel:
         tag_ids = self.mysql_conn.query(sql)
 
         for _tag, _id in tag_ids:
+            # append (tag,id) tuples to the list
             tag_id_list.append((_tag, _id))
 
         # return a dictionary with tag: internalTagID pairs
         return tag_id_list
 
-    # get the vibration assets model
-    def get_model(self):
+    # get the vibration assets model for mysql
+    def get_model_mysql(self):
+        '''
 
+        :return: a dictionary like this: {'asset1': {'group1: {'tag1': {'internalTagID': 519}, ...}}}
+        '''
         # initialize model dictionary
         model_dic = {}
 
         # format the model into a dictionary of dictionaries
         for asset in self.get_asset_list():
+            # update model with assets
             model_dic.update({asset: {}})
 
             for group in self.get_group_list(asset):
+                # update assets with groups
                 model_dic[asset].update({group: {}})
 
                 for _tag, _id in self.get_tag_id_list(asset, group):
-                    model_dic[asset][group].update({_tag:_id})
+                    # update group with tags
+                    model_dic[asset][group].update({_tag: {}})
+                    # update tags with internalTagID
+                    model_dic[asset][group][_tag].update({'internalTagID': _id})
 
         # return the complete assets dictionary
         return model_dic
 
+    # get the vibration assets model for influx
+    def get_model_influx(self):
+        '''
+
+        :return: a dictionary like this: {'asset1': ['group1___tag1', 'group1___tag2', ...]}
+        '''
+        # initialize model dictionary
+        model_dic = {}
+
+        # format the model into a dictionary of dictionaries
+        for asset in self.get_asset_list():
+            # initialize columns list
+            cols = []
+
+            for group in self.get_group_list(asset):
+
+                for _tag in self.get_tag_list(asset, group):
+                    # append a column for each tag in a group.
+                    cols.append(group + '___' + _tag)
+
+            # update dictionary with columns list for each asset
+            model_dic.update({asset: cols})
+
+        # return the complete assets dictionary
+        return model_dic
+
+    def update_model(self):
+        self._model_mysql = self.get_model_mysql()
+        self._model_influx = self.get_model_influx()
 
 # ******************* MySQL Database class *******************************
 class DBmysql:
