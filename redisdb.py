@@ -14,8 +14,8 @@ class RedisDB(object):
     # ******************* open_db Function ********************************************* OK OK
     def open_db(self):
          
-        # self.rc = rd.StrictRedis(host='localhost', port=6379, db=0)
-        self.rc = rd.StrictRedis(host='192.168.21.134', port=6379, db=0)
+        self.rc = rd.StrictRedis(host='localhost', port=6379, db=0)
+        #self.rc = rd.StrictRedis(host='192.168.1.152', port=6379, db=0)
         
         pass
      
