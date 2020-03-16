@@ -12,6 +12,7 @@ class Config:
     # define database configuration parameters
     mysql = {}
     mysql.update({'host': "127.0.0.1"})
+    # mysql.update({'host': "192.168.21.134"})
     mysql.update({'port': 3306})
     mysql.update({'user': "root"})
     mysql.update({'password': "sbrQp10"})
@@ -26,7 +27,6 @@ class VibModel:
 
     # define database connection
     def __init__(self):
-        self.mysql_conn = DBmysql(info=Config.mysql)
         self._model_mysql = self.get_model_mysql()
         self._model_influx = self.get_model_influx()
 
@@ -39,7 +39,7 @@ class VibModel:
         return self._model_influx
 
     # get the list of assets for vibration assets
-    def get_asset_list(self):
+    def get_asset_list(self, conn):
         '''
 
         :return: an asset list like this: ['asset1', 'asset2', ...]
@@ -55,7 +55,7 @@ class VibModel:
               'ORDER BY rt_process.processName ASC'
 
         # query the database
-        assets = self.mysql_conn.query(sql)
+        assets = conn.query(sql)
 
         # create the asset list
         for asset, in assets:
@@ -66,7 +66,7 @@ class VibModel:
         return asset_list
 
     # get the list of groups for an asset
-    def get_group_list(self, asset):
+    def get_group_list(self, asset, conn):
         '''
 
         :return:an asset dictionary like this: ['group1', 'group2', ...]
@@ -83,7 +83,7 @@ class VibModel:
               'ORDER BY rt_groups.groupName ASC'.format(asset)
 
         # query the database
-        groups = self.mysql_conn.query(sql)
+        groups = conn.query(sql)
 
         # create the group list
         for group, in groups:
@@ -94,7 +94,7 @@ class VibModel:
         return group_list
 
     # get the list of tags for an group
-    def get_tag_list(self, asset, group):
+    def get_tag_list(self, asset, group, conn):
         '''
 
         :return:a tag list like this: ['tag1', 'tag2', ...]
@@ -112,7 +112,7 @@ class VibModel:
               'AND config.rt_groups.groupName = "{}"'.format(asset, group)
 
         # query the database
-        tags = self.mysql_conn.query(sql)
+        tags = conn.query(sql)
 
         # create the tag list
         for tag, in tags:
@@ -122,7 +122,7 @@ class VibModel:
         # return a tag list for an group
         return tag_list
 
-    def get_tag_id_list(self, asset, group):
+    def get_tag_id_list(self, asset, group, conn):
         '''
 
         :return: a tag, id list like this: [(tag1, id1), (tag2, id2), ...]
@@ -140,7 +140,7 @@ class VibModel:
               'AND config.rt_groups.groupName = "{}"'.format(asset, group)
 
         # query the database
-        tag_ids = self.mysql_conn.query(sql)
+        tag_ids = conn.query(sql)
 
         for _tag, _id in tag_ids:
             # append (tag,id) tuples to the list
@@ -157,21 +157,26 @@ class VibModel:
         '''
         # initialize model dictionary
         model_dic = {}
+        # initialize the database connection
+        mysql_conn = DBmysql(info=Config.mysql)
 
         # format the model into a dictionary of dictionaries
-        for asset in self.get_asset_list():
+        for asset in self.get_asset_list(mysql_conn):
             # update model with assets
             model_dic.update({asset: {}})
 
-            for group in self.get_group_list(asset):
+            for group in self.get_group_list(asset, mysql_conn):
                 # update assets with groups
                 model_dic[asset].update({group: {}})
 
-                for _tag, _id in self.get_tag_id_list(asset, group):
+                for _tag, _id in self.get_tag_id_list(asset, group, mysql_conn):
                     # update group with tags
                     model_dic[asset][group].update({_tag: {}})
                     # update tags with internalTagID
                     model_dic[asset][group][_tag].update({'internalTagID': _id})
+
+        # Close database connection
+        mysql_conn.exit()
 
         # return the complete assets dictionary
         return model_dic
@@ -184,20 +189,25 @@ class VibModel:
         '''
         # initialize model dictionary
         model_dic = {}
+        # initialize the database connection
+        mysql_conn = DBmysql(info=Config.mysql)
 
         # format the model into a dictionary of dictionaries
-        for asset in self.get_asset_list():
+        for asset in self.get_asset_list(mysql_conn):
             # initialize columns list
             cols = []
 
-            for group in self.get_group_list(asset):
+            for group in self.get_group_list(asset, mysql_conn):
 
-                for _tag in self.get_tag_list(asset, group):
+                for _tag in self.get_tag_list(asset, group, mysql_conn):
                     # append a column for each tag in a group.
                     cols.append(group + '___' + _tag)
 
             # update dictionary with columns list for each asset
             model_dic.update({asset: cols})
+
+        # Close database connection
+        mysql_conn.exit()
 
         # return the complete assets dictionary
         return model_dic
