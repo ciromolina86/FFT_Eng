@@ -258,12 +258,10 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
 
     # create acceleration and velocity result spectrum (FFT) pandas dataframe
     acc_fft_pdf = pd.DataFrame({acc_fft_name: acc_fft.amps,
-                                freq_name: acc_fft.fs,
-                                evtid_name: tdw_pdf[evtid_name][:len(acc_fft)]},
+                                freq_name: acc_fft.fs},
                                index=tdw_pdf.index[:len(acc_fft)])
     vel_fft_pdf = pd.DataFrame({vel_fft_name: vel_fft.amps,
-                                freq_name: vel_fft.fs,
-                                evtid_name: tdw_pdf[evtid_name][:len(vel_fft)]},
+                                freq_name: vel_fft.fs},
                                index=tdw_pdf.index[:len(vel_fft)])
 
     '''============================================================================'''
@@ -300,7 +298,6 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
     fft_mtx = np.array([acc_fft_pdf[freq_name].values]).T
     fft_mtx = np.append(fft_mtx, np.array([acc_fft_pdf[acc_fft_name].values]).T, axis=1)
     fft_mtx = np.append(fft_mtx, np.array([vel_fft_pdf[vel_fft_name].values]).T, axis=1)
-    fft_mtx = np.append(fft_mtx, np.array([acc_fft_pdf[evtid_name].values]).T, axis=1)
 
     # Get number of rows and columns
     fft_mtx_row_count, fft_mtx_column_count = fft_eng.get_col_and_rows_numpy_array(fft_mtx)
@@ -311,8 +308,13 @@ def get_process_pdf(tdw_pdf, framerate, red_rate=1.0, acc=True, window='hanning'
 
     # create pandas dataframe from downsampled acceleration and velocity spectra
     fft_pdf_red = pd.DataFrame(fft_mtx_red,
-                               columns=[freq_red_name, acc_fft_red_name, vel_fft_red_name, evtid_red_name],
+                               columns=[freq_red_name, acc_fft_red_name, vel_fft_red_name],
                                index=tdw_pdf.index[:len(fft_mtx_red)])
+
+    # add the event id reduced column to the result pandas dataframe
+    fft_pdf_red = pd.concat([fft_pdf_red,
+                             {evtid_red_name: tdw_pdf[evtid_name][:len(fft_pdf_red)]}],
+                            axis=1)
 
     '''============================================================================'''
 
