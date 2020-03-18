@@ -344,7 +344,7 @@ def process(asset_name, event_id, framerate, axis='X'):
     tdw_pdf = read_acc_tdw(asset_name, event_id, axis=axis)
 
     # Get a python data frame per column that we need as el list
-    process_pdf_list = get_process_pdf(tdw_pdf, framerate, window='hanning', axis=axis, red_rate=0.1)
+    process_pdf_list = get_process_pdf(tdw_pdf, framerate, window='hanning', axis=axis, red_rate=0.3)
 
     # write to influxdb all the pandas data frame in a provided list
     pdf_to_influxdb(process_pdf_list, asset_name)
