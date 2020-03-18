@@ -15,6 +15,7 @@ from databases_conn import DBinflux
 from databases_conn import DBmysql
 from databases_conn import VibModel
 from redisdb import RedisDB
+import influx_helper
 
 
 def update_config_data():
