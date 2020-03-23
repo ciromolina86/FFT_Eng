@@ -1,51 +1,57 @@
 from influxdb import InfluxDBClient
 
-# Initialization
-client = InfluxDBClient('127.0.0.1', 8086, '', '', 'sorba_sde')
-vib_measurement_list = []
 
-# Get list of measurements
-all_measurement_list = client.get_list_measurements()
+def influx_index_adder(asset_name, event_ids_list, asset_dic_queue):
+    """
 
-# Filter the list the get only the vibration measurements(start measurement name with VIB_)
-for measurement in all_measurement_list:
-    measurement_name = measurement.get('name')
-    if measurement_name.find('VIB_', 0, 4) != -1:
-        vib_measurement_list.append(measurement_name)
+    :param asset_name:
+    :param event_ids_list:
+    :param asset_dic_queue:
+    :return:
+    """
+    # Initialization
+    client = InfluxDBClient('127.0.0.1', 8086, '', '', 'sorba_sde')
 
-# Get data from interval selected
-for vib_measurement in vib_measurement_list:
-    print("[INFO] Started processing measurement: %s" % vib_measurement)
+    # Get Any element from the list since the axis has the same EventID
+    event_id = event_ids_list[0]
+
+    print("[INFO] Started adding index to measurement: %s" % asset_name)
+    print("[INFO] Asset: %s" % asset_name)
+    print("[INFO] Event ID LIST: %s" % event_ids_list)
+    print("[INFO] Event ID: %s" % event_id)
+
     # Cycle Initialization
     json_list_to_write = []
     first_cycle_finished = False
     field_name_list = []
-    point_counter = 0
-    first_ts = None
-    last_ts = None
 
-    # Create sql query
-    sql_get_data = "SELECT * FROM " + vib_measurement + " WHERE time > now() - 7d"
+    # Create sql query metadata
+    wf_evt_id = 'WF___EVTID'
+    evt_id = "'{}'".format(event_id)
+
+    # Create sql query string
+    sql_get_data = "select * from {} where {} = {}".format(asset_name, wf_evt_id, evt_id)
 
     # Execute query
     result = client.query(sql_get_data, epoch='ms')
 
     # Get data points
-    points = result.get_points(vib_measurement)
+    points = result.get_points(asset_name)
 
     for point in points:
+        # New Points Initialization
+        row_already_processed_counter = 0
+        no_data_in_range_counter = 0
+
         # Check if EvtID and Index are in the current data
         if ("WF___EVTID_INDEX" in point) and (point['WF___EVTID_INDEX'] is not None):
-            print("[INFO] Data point was already processed")
+            row_already_processed_counter += 1
         else:
             if point['WF___EVTID'] is None:
-                print("[INFO] There is not data on this range")
+                no_data_in_range_counter += 1
             else:
                 # Get all field names in first cycle
                 if first_cycle_finished is False:
-                    # Get Initial Timestamp
-                    first_ts = point['time']
-
                     # Get all field names
                     field_names = point.keys()
 
@@ -71,7 +77,7 @@ for vib_measurement in vib_measurement_list:
                         field_json_point.update({fname: field_value})
 
                     # Create json to append to the json_list
-                    json_to_write = {"measurement": vib_measurement,
+                    json_to_write = {"measurement": asset_name.replace("VIB_", "V_"),
                                      "tags": {
                                          "WF___EVTID_INDEX": point['WF___EVTID']
                                      },
@@ -81,10 +87,15 @@ for vib_measurement in vib_measurement_list:
                     # Append json to
                     json_list_to_write.append(json_to_write)
 
-                    # Capture last timestamp
-                    last_ts = point['time']
-
     # Write tags
     client.write_points(json_list_to_write, time_precision='ms', batch_size=1000)
 
-    print("[INFO] Finished processing measurement: %s" % vib_measurement)
+    # Add event ID to the processed queue
+    processed_event_id_queue = asset_dic_queue.get(asset_name)
+    processed_event_id_queue.appendleft(str(event_id))
+    asset_dic_queue.update({asset_name: processed_event_id_queue})
+
+    print("[INFO] Finished adding index to measurement: %s" % asset_name)
+    # print("[INFO] Processed Event IDs DIC: %s" % asset_dic_queue)
+
+    return asset_dic_queue

@@ -459,6 +459,7 @@ def redis_get_value(rt_redis_data, redis_key):
 def redis_set_value(rt_redis_data, redis_key, redis_value):
     """
 
+    :param rt_redis_data:
     :param redis_key:
     :param redis_value:
     :return:
