@@ -1092,6 +1092,23 @@ def test_vibmodel_class():
     # for k in mod1.model_mysql.keys():
     #     print(k)
 
+def test_fft_eng_integrate():
+    tdw_acc = thinkdsp.CosSignal(freq=1,amp=1.0,offset=0).make_wave(duration=1,start=0, framerate=100)
+    tdw_vel = fft_eng.integrate(tdw_acc)
+
+    # create a figure
+    fig1 = plt.figure()
+    # create a subplot
+    ax = fig1.add_subplot(211)
+    # plot a wave1
+    tdw_acc.plot(label='acc', color='b')
+    ax.legend()
+    # create a subplot
+    ax = fig1.add_subplot(212)
+    # plot a wave1
+    tdw_vel.plot(label='vel', color='r')
+    ax.legend()
+    plt.show()
 
 
 # def write_influx_test_data2():
@@ -1205,3 +1222,4 @@ if __name__ == "__main__":
 
     # test_read_rt_value_using_model()
     test_vibmodel_class()
+    # test_fft_eng_integrate()

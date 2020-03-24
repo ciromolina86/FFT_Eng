@@ -109,25 +109,28 @@ def get_spectrum(wave, window='', beta=6):
     :return: thinkdsp.Spectrum object
     '''
 
+    # create a copy of the original wave
+    raw_wave = wave.copy()
+
     # apply user defined window to the time domain waveform
     if window == 'hanning':
         '''The Hanning window is a taper formed by using a weighted cosine'''
 
-        wave.window(np.hanning(len(wave.ys)))
+        raw_wave.window(np.hanning(len(raw_wave.ys)))
 
     if window == 'blackman':
         '''The Blackman window is a taper formed by using the first three terms of a summation of cosines. 
         It was designed to have close to the minimal leakage possible. 
         It is close to optimal, only slightly worse than a Kaiser window'''
 
-        wave.window(np.blackman(len(wave.ys)))
+        raw_wave.window(np.blackman(len(raw_wave.ys)))
 
     if window == 'bartlett':
         '''The Bartlett window is very similar to a triangular window, 
         except that the end points are at zero. It is often used in signal processing for tapering a signal, 
         without generating too much ripple in the frequency domain.'''
 
-        wave.window(np.bartlett(len(wave.ys)))
+        raw_wave.window(np.bartlett(len(raw_wave.ys)))
 
     if window == 'kaiser':
         '''The Kaiser window is a taper formed by using a Bessel function.
@@ -137,10 +140,10 @@ def get_spectrum(wave, window='', beta=6):
         6	    Similar to a Hanning
         8.6	    Similar to a Blackman '''
 
-        wave.window(np.kaiser(len(wave.ys), beta=beta))
+        raw_wave.window(np.kaiser(len(raw_wave.ys), beta=beta))
 
     # obtain the spectrum from a wave
-    result = wave.make_spectrum(full=False)
+    result = raw_wave.make_spectrum(full=False)
 
     # print(result.hs[0])
 
@@ -153,33 +156,37 @@ def get_spectrum(wave, window='', beta=6):
 
 
 def get_spectrum2(wave, window='', normalize=False, amp=1.0, unbias=False, beta=6):
+
+    # create a copy of the original wave
+    raw_wave = wave.copy()
+
     # unbiases the signal
     if unbias == True:
-        wave.unbias()
+        raw_wave.unbias()
 
     # normalizes the signal
     if normalize == True:
-        wave.normalize(amp=amp)
+        raw_wave.normalize(amp=amp)
 
     # apply user defined window to the time domain waveform
     if window == 'hanning':
         '''The Hanning window is a taper formed by using a weighted cosine'''
 
-        wave.window(np.hanning(len(wave.ys)))
+        raw_wave.window(np.hanning(len(raw_wave.ys)))
 
     if window == 'blackman':
         '''The Blackman window is a taper formed by using the first three terms of a summation of cosines. 
         It was designed to have close to the minimal leakage possible. 
         It is close to optimal, only slightly worse than a Kaiser window'''
 
-        wave.window(np.blackman(len(wave.ys)))
+        raw_wave.window(np.blackman(len(raw_wave.ys)))
 
     if window == 'bartlett':
         '''The Bartlett window is very similar to a triangular window, 
         except that the end points are at zero. It is often used in signal processing for tapering a signal, 
         without generating too much ripple in the frequency domain.'''
 
-        wave.window(np.bartlett(len(wave.ys)))
+        raw_wave.window(np.bartlett(len(raw_wave.ys)))
 
     if window == 'kaiser':
         '''The Kaiser window is a taper formed by using a Bessel function.
@@ -189,10 +196,10 @@ def get_spectrum2(wave, window='', normalize=False, amp=1.0, unbias=False, beta=
         6	    Similar to a Hanning
         8.6	    Similar to a Blackman '''
 
-        wave.window(np.kaiser(len(wave.ys), beta=beta))
+        raw_wave.window(np.kaiser(len(raw_wave.ys), beta=beta))
 
     # obtain the spectrum from a wave
-    result = wave.make_spectrum(full=False)
+    result = raw_wave.make_spectrum(full=False)
 
     # print(result.hs[0])
 
